@@ -23,7 +23,7 @@ function doPost(e) {
 
     // --- 設定の保存 ---
     if (data.type === 'config') {
-      const blob = JSON.stringify({ items: data.items || [], itemSettings: data.itemSettings || {}, ts: data.ts || Date.now() });
+      const blob = JSON.stringify({ items: data.items || [], itemSettings: data.itemSettings || {}, vendors: data.vendors || [], ts: data.ts || Date.now() });
       configSheet().getRange(1, 1).setValue(blob);
       return ContentService.createTextOutput(JSON.stringify({ok:true})).setMimeType(ContentService.MimeType.JSON);
     }

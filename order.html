@@ -238,14 +238,19 @@ function loadVendors(){
   const s=localStorage.getItem('freezer_vendors');
   if(s){
     try{
-      const v = JSON.parse(s);
-      if (v.length !== DEFAULT_VENDORS.length) {
-        localStorage.setItem('freezer_vendors', JSON.stringify(DEFAULT_VENDORS));
-        return DEFAULT_VENDORS;
+      let v = JSON.parse(s);
+      if (localStorage.getItem('freezer_vendors_migration') !== 'v2') {
+        if (v.some(x => ['unotore_ude','unotore_sheet','unknown'].includes(x.key))) {
+          v = DEFAULT_VENDORS.slice();
+          localStorage.setItem('freezer_vendors', JSON.stringify(v));
+        }
+        localStorage.setItem('freezer_vendors_migration', 'v2');
       }
+      if (!v.some(x => x.key === '')) { v.push({key:'', name:'（空欄）', phone:''}); }
       return v;
     }catch(e){}
   }
+  localStorage.setItem('freezer_vendors_migration', 'v2');
   return DEFAULT_VENDORS;
 }
 function saveVendors(v){ localStorage.setItem('freezer_vendors', JSON.stringify(v)); }
@@ -277,6 +282,10 @@ async function fetchConfigFromServer(){
     if (data.itemSettings && typeof data.itemSettings === 'object') {
       const next = JSON.stringify(data.itemSettings);
       if (localStorage.getItem('freezer_item_settings') !== next) { localStorage.setItem('freezer_item_settings', next); changed = true; }
+    }
+    if (Array.isArray(data.vendors) && data.vendors.length) {
+      const next = JSON.stringify(data.vendors);
+      if (localStorage.getItem('freezer_vendors') !== next) { localStorage.setItem('freezer_vendors', next); changed = true; }
     }
     localStorage.setItem('freezer_config_ts', String(serverTs));
     return changed;

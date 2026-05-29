@@ -78,6 +78,11 @@
   .scard-actions .del-btn{color:var(--red);}
   .add-item-btn{width:100%;padding:10px;background:#fff;border:2px dashed var(--accent2);color:var(--accent2);border-radius:8px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;margin-top:4px;}
   .add-item-btn:active{background:var(--light-accent);}
+  .vrow{display:flex;gap:8px;align-items:center;margin-bottom:6px;}
+  .vrow input{flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:14px;font-family:inherit;background:#fff;outline:none;}
+  .vrow input:focus{border-color:var(--accent2);}
+  .vrow .vdel{background:#fff;border:1px solid var(--border);color:var(--red);width:36px;height:36px;border-radius:6px;cursor:pointer;font-size:14px;flex-shrink:0;}
+  .vrow .vfixed{flex:1;padding:8px 10px;font-size:13px;color:var(--muted);background:#f5f5f5;border-radius:6px;}
   .scard-row{display:flex;gap:6px;align-items:center;margin-bottom:6px;}
   .scard-row:last-child{margin-bottom:0;}
   .scard-label{font-size:10px;font-weight:700;color:var(--muted);min-width:60px;}
@@ -185,11 +190,6 @@
       <div class="settings-section-title">Webhook URL</div>
       <input type="text" id="setting-webhook" placeholder="https://script.google.com/macros/s/.../exec">
 
-      <div class="settings-section-title">品目別 設定</div>
-      <p style="font-size:10px;color:var(--muted);margin-bottom:6px;line-height:1.4;">
-        品名・単位は表示用。発注商品名は SMS本文に使う名前（空欄なら品名）。<br>
-        最小未満→赤背景／最大以上→緑背景。
-      </p>
       <p class="settings-locked-msg" style="font-size:11px;color:var(--muted);margin:8px 0;line-height:1.4;text-align:center;">
         🔒 閲覧モード（下の橙ボタンで編集開始）
       </p>
@@ -197,6 +197,18 @@
         ✏️ 編集モード（下の「保存」ボタンで反映）
       </p>
       <button type="button" class="unlock-btn" id="unlock-btn">編集</button>
+
+      <div class="settings-section-title">業者設定</div>
+      <p style="font-size:10px;color:var(--muted);margin-bottom:6px;line-height:1.4;">
+        業者の追加・名前変更・削除ができます。削除した業者の品は「業者なし」に移ります。
+      </p>
+      <div id="vendor-settings"></div>
+
+      <div class="settings-section-title">品目別 設定</div>
+      <p style="font-size:10px;color:var(--muted);margin-bottom:6px;line-height:1.4;">
+        品名・単位は表示用。発注商品名は SMS本文に使う名前（空欄なら品名）。<br>
+        最小以下→赤背景／最大以上→青背景。
+      </p>
       <div class="settings-cards" id="settings-cards"></div>
     </div>
 
@@ -282,15 +294,21 @@ function loadVendors(){
   const s=localStorage.getItem('freezer_vendors');
   if(s){
     try{
-      const v = JSON.parse(s);
-      // 旧7件構成だったら新5件構成に置き換え
-      if (v.length !== DEFAULT_VENDORS.length) {
-        localStorage.setItem('freezer_vendors', JSON.stringify(DEFAULT_VENDORS));
-        return DEFAULT_VENDORS;
+      let v = JSON.parse(s);
+      // 旧7件構成（ウノトレ冷凍ウデ等）からの一度きり移行
+      if (localStorage.getItem('freezer_vendors_migration') !== 'v2') {
+        if (v.some(x => ['unotore_ude','unotore_sheet','unknown'].includes(x.key))) {
+          v = DEFAULT_VENDORS.slice();
+          localStorage.setItem('freezer_vendors', JSON.stringify(v));
+        }
+        localStorage.setItem('freezer_vendors_migration', 'v2');
       }
+      // 空欄業者が無ければ補完
+      if (!v.some(x => x.key === '')) { v.push({key:'', name:'（空欄）', phone:''}); }
       return v;
     }catch(e){}
   }
+  localStorage.setItem('freezer_vendors_migration', 'v2');
   return DEFAULT_VENDORS;
 }
 function saveVendors(v){ localStorage.setItem('freezer_vendors', JSON.stringify(v)); }
@@ -325,6 +343,7 @@ function saveConfigToServer(){
     type: 'config',
     items: JSON.parse(localStorage.getItem('freezer_items') || 'null') || [],
     itemSettings: JSON.parse(localStorage.getItem('freezer_item_settings') || '{}'),
+    vendors: JSON.parse(localStorage.getItem('freezer_vendors') || 'null') || [],
     ts: ts,
   };
   fetch(url, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) })
@@ -351,6 +370,10 @@ async function fetchConfigFromServer(){
     if (data.itemSettings && typeof data.itemSettings === 'object') {
       const next = JSON.stringify(data.itemSettings);
       if (localStorage.getItem('freezer_item_settings') !== next) { localStorage.setItem('freezer_item_settings', next); changed = true; }
+    }
+    if (Array.isArray(data.vendors) && data.vendors.length) {
+      const next = JSON.stringify(data.vendors);
+      if (localStorage.getItem('freezer_vendors') !== next) { localStorage.setItem('freezer_vendors', next); changed = true; }
     }
     localStorage.setItem('freezer_config_ts', String(serverTs));  // 取得したサーバー時刻を記録
     return changed;
@@ -639,8 +662,81 @@ function escHtml(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').re
 function openSettings(){
   document.getElementById('settings-form').classList.add('locked');
   document.getElementById('setting-webhook').value = loadWebhookUrl();
+  renderVendorSettings();
   renderSettingsCards();
   document.getElementById('modal-settings').classList.add('show');
+}
+
+// 業者設定の描画
+function renderVendorSettings(){
+  const box = document.getElementById('vendor-settings');
+  box.innerHTML = '';
+  VENDORS.forEach(v => {
+    const row = document.createElement('div');
+    row.className = 'vrow';
+    if (v.key === '') {
+      // 空欄（業者なし）は固定・削除不可
+      row.innerHTML = `<div class="vfixed">（業者なし）※削除不可</div>`;
+    } else {
+      row.innerHTML = `
+        <input type="text" data-vname-key="${v.key}" value="${escHtml(v.name)}">
+        <button type="button" class="vdel" data-vdel="${v.key}" title="削除">🗑</button>
+      `;
+    }
+    box.appendChild(row);
+  });
+  // 追加ボタン
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.className = 'add-item-btn';
+  addBtn.textContent = '＋ 業者を追加';
+  addBtn.addEventListener('click', addVendor);
+  box.appendChild(addBtn);
+  // 削除ハンドラ
+  box.querySelectorAll('.vdel').forEach(btn => {
+    btn.onclick = () => deleteVendor(btn.dataset.vdel);
+  });
+}
+
+function syncVendorNames(){
+  // 入力中の業者名を VENDORS に反映
+  document.querySelectorAll('[data-vname-key]').forEach(inp => {
+    const v = VENDORS.find(x => x.key === inp.dataset.vnameKey);
+    if (v) v.name = inp.value;
+  });
+}
+
+function addVendor(){
+  if (document.getElementById('settings-form').classList.contains('locked')) return;
+  syncVendorNames();
+  const key = 'v' + Date.now();
+  // 空欄業者の手前に挿入（空欄は常に最後）
+  const emptyIdx = VENDORS.findIndex(v => v.key === '');
+  const newV = { key, name: '', phone: '' };
+  if (emptyIdx >= 0) VENDORS.splice(emptyIdx, 0, newV);
+  else VENDORS.push(newV);
+  renderVendorSettings();
+  renderSettingsCards();  // 品目の業者ドロップダウンも更新
+}
+
+function deleteVendor(key){
+  if (document.getElementById('settings-form').classList.contains('locked')) return;
+  const v = VENDORS.find(x => x.key === key);
+  if (!v) return;
+  const affected = ITEMS.filter(it => it.vendor === key);
+  const msg = affected.length
+    ? `業者「${v.name||'(無名)'}」を削除しますか？\nこの業者の品 ${affected.length}件 は「業者なし」に移ります。`
+    : `業者「${v.name||'(無名)'}」を削除しますか？`;
+  if (!confirm(msg)) return;
+  syncVendorNames();
+  syncFormValuesToItems();
+  // 該当品を業者なしに
+  ITEMS.forEach(it => { if (it.vendor === key) it.vendor = ''; });
+  // VENDORSから削除
+  const idx = VENDORS.findIndex(x => x.key === key);
+  if (idx >= 0) VENDORS.splice(idx, 1);
+  renderVendorSettings();
+  renderSettingsCards();
 }
 
 function renderSettingsCards(){
@@ -794,8 +890,15 @@ function saveSettings(){
     }
   });
   Object.keys(newSettings).forEach(id => { if (Object.keys(newSettings[id]).length === 0) delete newSettings[id]; });
-  // 入力値を ITEMS に反映（並び順は ITEMS のまま）
+  // 入力値を ITEMS / VENDORS に反映
   syncFormValuesToItems();
+  syncVendorNames();
+
+  // 旧業者リスト（比較用）
+  const oldVendorsRaw = localStorage.getItem('freezer_vendors');
+  let oldVendors = [];
+  try { oldVendors = oldVendorsRaw ? JSON.parse(oldVendorsRaw) : DEFAULT_VENDORS.slice(); } catch(e){ oldVendors = DEFAULT_VENDORS.slice(); }
+  const oldVendorMap = Object.fromEntries(oldVendors.map(v => [v.key, v.name]));
 
   // ITEMSのスナップショット保存前の比較用（旧版は元のlocalStorageから）
   const oldItemsRaw = localStorage.getItem('freezer_items');
@@ -835,6 +938,16 @@ function saveSettings(){
     // 個別の入れ替えはノイズが多いので、まとめて記載
     diffs.push(`↕ 並び順を変更しました`);
   }
+  // 業者の差分（追加・削除・改名）
+  oldVendors.forEach(ov => {
+    if (ov.key === '') return;
+    if (!VENDORS.find(v => v.key === ov.key)) diffs.push(`🗑 業者削除: ${ov.name}`);
+  });
+  VENDORS.forEach(v => {
+    if (v.key === '') return;
+    if (!oldVendorMap.hasOwnProperty(v.key)) diffs.push(`✨ 業者追加: ${v.name||'(無名)'}`);
+    else if (oldVendorMap[v.key] !== v.name) diffs.push(`業者名: [${oldVendorMap[v.key]||'(無名)'}] → [${v.name||'(無名)'}]`);
+  });
   // Webhook URL
   const newUrl = document.getElementById('setting-webhook').value.trim();
   if (newUrl !== loadWebhookUrl()) diffs.push(`Webhook URL: 変更あり`);
@@ -851,6 +964,7 @@ function saveSettings(){
   saveWebhookUrl(newUrl);
   saveItemSettings(newSettings);
   saveItems(ITEMS);
+  saveVendors(VENDORS);
   closeSettings();
   saveConfigToServer();   // サーバーにも設定を保存（全端末同期・初期値に戻らないように）
   showToast('設定を保存しました');
