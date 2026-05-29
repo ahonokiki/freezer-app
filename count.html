@@ -103,23 +103,6 @@
   .settings-locked-msg, .settings-edit-msg{display:none;}
   .settings-form.locked .settings-locked-msg{display:block;}
   .settings-form:not(.locked) .settings-edit-msg{display:block;}
-  /* フローティング「次へ」ボタン（キーボード上に常時表示） */
-  #floating-next-btn{
-    position:fixed; right:14px; bottom:14px; z-index:200;
-    background:var(--accent); color:#fff; border:none; border-radius:32px;
-    padding:16px 26px; font-size:16px; font-weight:700; font-family:inherit;
-    box-shadow:0 4px 20px rgba(26,58,107,0.4);
-    cursor:pointer; display:none; letter-spacing:0.06em;
-    transition:background 0.18s, transform 0.1s;
-  }
-  #floating-next-btn:active{background:#122d58; transform:scale(0.95);}
-  #floating-next-btn.show{display:flex; align-items:center; gap:6px;}
-  #floating-next-btn.last{background:var(--green);}
-  #floating-next-btn.last:active{background:#0f5a37;}
-  #floating-next-btn .float-count{
-    background:rgba(255,255,255,0.25); padding:2px 8px; border-radius:12px;
-    font-size:11px; font-weight:700;
-  }
   .memo-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px;margin-bottom:14px;}
   .memo-card label{display:block;font-size:11px;font-weight:700;color:var(--muted);margin-bottom:6px;letter-spacing:0.04em;}
   .memo-card textarea{width:100%;min-height:60px;padding:10px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:inherit;background:var(--input-bg);outline:none;resize:vertical;}
@@ -189,10 +172,6 @@
 
 </div>
 
-<button id="floating-next-btn" type="button">
-  <span class="float-label">次へ ▶</span>
-  <span class="float-count" id="float-count">1 / 21</span>
-</button>
 
 <div class="toast" id="toast"></div>
 
@@ -539,11 +518,9 @@ function attachNavHandlers() {
     inp.addEventListener('focus', () => {
       document.querySelectorAll('.item.focused').forEach(el => el.classList.remove('focused'));
       inp.closest('.item').classList.add('focused');
-      showFloatBtn(inp);
     });
     inp.addEventListener('blur', () => {
       inp.closest('.item').classList.remove('focused');
-      hideFloatBtn();
     });
     inp.addEventListener('input', () => checkLowStock(inp));
     // Enterキー（PCキーボード用）も次へ
@@ -559,78 +536,6 @@ function attachNavHandlers() {
     checkLowStock(inp);
   });
 
-}
-
-/* === フローティング「次へ」ボタン === */
-const floatBtn = document.getElementById('floating-next-btn');
-const floatCount = document.getElementById('float-count');
-const floatLabel = floatBtn.querySelector('.float-label');
-let lastFocusedInput = null;
-
-function updateFloatBtn(inp) {
-  const inputs = Array.from(document.querySelectorAll('input[data-id]'));
-  const idx = inputs.indexOf(inp);
-  const total = inputs.length;
-  floatLabel.textContent = '次へ ▶';
-  floatCount.textContent = `${idx + 1} / ${total}`;
-  floatBtn.classList.remove('last');
-}
-
-function showFloatBtn(inp) {
-  lastFocusedInput = inp;
-  updateFloatBtn(inp);
-  floatBtn.classList.add('show');
-}
-
-function hideFloatBtn() {
-  // blur後、別のinput[data-id]にフォーカス移動した場合は隠さない
-  setTimeout(() => {
-    const ae = document.activeElement;
-    if (!ae || !ae.matches('input[data-id]')) {
-      floatBtn.classList.remove('show');
-      lastFocusedInput = null;
-    }
-  }, 150);
-}
-
-function goNext() {
-  const inputs = Array.from(document.querySelectorAll('input[data-id]'));
-  // activeElement優先、無ければ lastFocusedInput
-  let inp = (document.activeElement && document.activeElement.matches('input[data-id]'))
-    ? document.activeElement
-    : lastFocusedInput;
-  if (!inp) return;
-  const idx = inputs.indexOf(inp);
-  if (idx < 0) return;
-  if (idx === inputs.length - 1) {
-    // 最後の品なら最後にとどまる（送信は下のボタンから）
-    return;
-  }
-  const next = inputs[idx + 1];
-  if (next) {
-    next.focus();
-    next.scrollIntoView({behavior:'smooth', block:'center'});
-    lastFocusedInput = next;
-    updateFloatBtn(next);
-  }
-}
-
-// pointerdown は touch も mouse も発火、かつ preventDefault でblur回避＋clickも発火する
-floatBtn.addEventListener('pointerdown', e => {
-  e.preventDefault();
-  goNext();
-});
-
-// iOS キーボードに合わせて位置調整
-if (window.visualViewport) {
-  const updatePos = () => {
-    const vv = window.visualViewport;
-    const offsetFromBottom = window.innerHeight - (vv.offsetTop + vv.height);
-    floatBtn.style.bottom = (offsetFromBottom + 14) + 'px';
-  };
-  visualViewport.addEventListener('resize', updatePos);
-  visualViewport.addEventListener('scroll', updatePos);
-  updatePos();
 }
 
 function checkLowStock(inp) {
