@@ -457,6 +457,7 @@ function renderVendors() {
     card.querySelector(`[data-copy="${v.key}"]`).addEventListener('click', () => copyVendor(v.key));
     updatePreview(v.key);
   });
+  updateBadges();  // 取得直後にタブの発注数バッジを更新（他タブを押さなくても反映）
 }
 
 function buildSmsText(vendorKey) {
