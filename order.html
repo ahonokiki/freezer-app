@@ -58,8 +58,7 @@
   .empty-state{text-align:center;padding:40px 20px;color:var(--muted);font-size:13px;}
   /* 行背景: 最小未満=赤 / 最小=黄 / 最大以上=薄緑 */
   .order-item.bg-low{background:#fde8e8;}
-  .order-item.bg-warn{background:#fff8dc;}
-  .order-item.bg-high{background:#e8f5e9;}
+  .order-item.bg-high{background:#e3f0fb;}
   /* 設定テーブル */
   .settings-cards{margin:10px 0;padding-bottom:80px;}
   .sgroup{margin-bottom:14px;}
@@ -412,19 +411,17 @@ function renderVendors() {
       const stockNum = hasStock ? parseFloat(stock) : null;
       const stockStr = hasStock ? `現在庫: ${stock}${it.unit}` : '現在庫: 未入力';
       const s = settings[it.id] || {};
-      // 行背景: 最小未満=赤 / 最小=黄 / 最大以上=薄緑
+      // 行背景: 最小以下=赤(少ない) / 最大以上=青(多い) / それ以外=なし
       let bgClass = '';
       const minSet = s.min !== undefined && s.min !== null && s.min !== '';
       const maxSet = s.max !== undefined && s.max !== null && s.max !== '';
       const orderSet = s.order !== undefined && s.order !== null && s.order !== '';
-      const belowMin = hasStock && minSet && stockNum < parseFloat(s.min);
-      const atMin    = hasStock && minSet && stockNum === parseFloat(s.min);
+      const atOrBelowMin = hasStock && minSet && stockNum <= parseFloat(s.min);
       const atOrAboveMax = hasStock && maxSet && stockNum >= parseFloat(s.max);
-      if (belowMin) bgClass = 'bg-low';
-      else if (atMin) bgClass = 'bg-warn';
+      if (atOrBelowMin) bgClass = 'bg-low';
       else if (atOrAboveMax) bgClass = 'bg-high';
-      // 自動入力: 最小以下（未満 or 等しい）かつ発注数設定済み → 発注対象
-      if (!orderState[v.key][it.id] && (belowMin || atMin) && orderSet) {
+      // 自動入力: 最小以下かつ発注数設定済み → 発注対象
+      if (!orderState[v.key][it.id] && atOrBelowMin && orderSet) {
         orderState[v.key][it.id] = { qty: s.order };
       }
       const state = orderState[v.key][it.id] || {};

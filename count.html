@@ -63,10 +63,8 @@
   /* 行背景: 最小未満=赤 / 最小=黄 / 最大以上=薄緑 */
   .item.bg-low{background:#fde8e8 !important;}
   .item.bg-low.focused{background:#fcd5d5 !important;}
-  .item.bg-warn{background:#fff8dc !important;}
-  .item.bg-warn.focused{background:#fff3b8 !important;}
-  .item.bg-high{background:#e8f5e9 !important;}
-  .item.bg-high.focused{background:#d4edda !important;}
+  .item.bg-high{background:#e3f0fb !important;}
+  .item.bg-high.focused{background:#cfe4f7 !important;}
   /* 設定テーブル */
   .settings-cards{margin:10px 0;padding-bottom:80px;}
   .sgroup{margin-bottom:14px;}
@@ -427,7 +425,7 @@ function renderGroups() {
         <div class="item-row">
           <div class="cell prev">
             <div class="cell-label">${lastMMDD || '前回'}</div>
-            <div class="cell-value ${valueColorClass(prev, setting)}">${prevStr}</div>
+            <div class="cell-value">${prevStr}</div>
           </div>
           <div class="cell input">
             <div class="cell-label">今週</div>
@@ -546,16 +544,14 @@ function checkLowStock(inp) {
   const settings = loadItemSettings();
   const s = settings[id] || {};
   const row = inp.closest('.item');
-  // 行背景＋入力テキスト色をリセット
-  row.classList.remove('bg-low','bg-warn','bg-high');
-  inp.classList.remove('warn-low','v-low','v-warn','v-high');
-  // 値クラスを判定して適用
-  const cls = valueColorClass(inp.value, s);
-  if (cls) inp.classList.add(cls);
-  // 行背景
-  if (cls === 'v-low') row.classList.add('bg-low');
-  else if (cls === 'v-warn') row.classList.add('bg-warn');
-  else if (cls === 'v-high') row.classList.add('bg-high');
+  row.classList.remove('bg-low','bg-high');
+  const v = parseFloat(inp.value);
+  if (isNaN(v)) return;
+  const minSet = s.min !== undefined && s.min !== null && s.min !== '';
+  const maxSet = s.max !== undefined && s.max !== null && s.max !== '';
+  if (minSet && v <= parseFloat(s.min)) row.classList.add('bg-low');        // 少ない→赤
+  else if (maxSet && v >= parseFloat(s.max)) row.classList.add('bg-high');  // 多い→青
+  // それ以外（ふつう）は色なし
 }
 
 // 送信
