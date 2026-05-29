@@ -254,6 +254,31 @@ function loadItemSettings(){
   return {};
 }
 function saveItemSettings(s){ localStorage.setItem('freezer_item_settings', JSON.stringify(s)); }
+
+/* === サーバーから設定取得（count.html と共有・初期値に戻らないように） === */
+async function fetchConfigFromServer(){
+  const url = loadWebhookUrl();
+  if (!url) return false;
+  try {
+    const r = await fetch(url + '?action=config');
+    const data = await r.json();
+    let changed = false;
+    if (data && Array.isArray(data.items) && data.items.length) {
+      const next = JSON.stringify(data.items);
+      if (localStorage.getItem('freezer_items') !== next) {
+        localStorage.setItem('freezer_items', next); changed = true;
+      }
+    }
+    if (data && data.itemSettings && typeof data.itemSettings === 'object') {
+      const next = JSON.stringify(data.itemSettings);
+      if (localStorage.getItem('freezer_item_settings') !== next) {
+        localStorage.setItem('freezer_item_settings', next); changed = true;
+      }
+    }
+    return changed;
+  } catch(e) { console.warn('設定サーバー取得失敗:', e); }
+  return false;
+}
 </script>
 <script>
 const ITEMS = loadItems();
@@ -269,7 +294,12 @@ VENDORS.forEach(v => orderState[v.key] = {});
 renderTabs();
 renderVendors();
 updateLatestInfo();
-fetchLatest();   // 起動時自動取得
+// サーバーから設定取得→差分あれば再読込、なければ最新在庫取得
+(async () => {
+  const got = await fetchConfigFromServer();
+  if (got) { location.reload(); return; }
+  fetchLatest();
+})();
 
 document.getElementById('reload-btn').addEventListener('click', fetchLatest);
 

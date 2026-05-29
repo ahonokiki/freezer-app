@@ -334,6 +334,46 @@ function loadItemSettings(){
   return {};
 }
 function saveItemSettings(s){ localStorage.setItem('freezer_item_settings', JSON.stringify(s)); }
+
+/* === サーバー（GAS）への設定同期 === */
+// 設定一式（品目マスタ＋基準値）をサーバーに保存
+function saveConfigToServer(){
+  const url = loadWebhookUrl();
+  if (!url) return;
+  const payload = {
+    type: 'config',
+    items: JSON.parse(localStorage.getItem('freezer_items') || 'null') || [],
+    itemSettings: JSON.parse(localStorage.getItem('freezer_item_settings') || '{}'),
+    ts: Date.now(),
+  };
+  // no-cors で送信（GAS側で受信）
+  fetch(url, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) })
+    .catch(e => console.warn('設定サーバー保存失敗:', e));
+}
+// サーバーから設定を取得して localStorage に反映。差分があった時だけ true（無限リロード防止）
+async function fetchConfigFromServer(){
+  const url = loadWebhookUrl();
+  if (!url) return false;
+  try {
+    const r = await fetch(url + '?action=config');
+    const data = await r.json();
+    let changed = false;
+    if (data && Array.isArray(data.items) && data.items.length) {
+      const next = JSON.stringify(data.items);
+      if (localStorage.getItem('freezer_items') !== next) {
+        localStorage.setItem('freezer_items', next); changed = true;
+      }
+    }
+    if (data && data.itemSettings && typeof data.itemSettings === 'object') {
+      const next = JSON.stringify(data.itemSettings);
+      if (localStorage.getItem('freezer_item_settings') !== next) {
+        localStorage.setItem('freezer_item_settings', next); changed = true;
+      }
+    }
+    return changed;
+  } catch(e) { console.warn('設定サーバー取得失敗:', e); }
+  return false;
+}
 </script>
 <script>
 const ITEMS = loadItems();
@@ -423,7 +463,12 @@ function renderGroups() {
 renderGroups();
 attachNavHandlers();
 updateLastCheckInfo();
-fetchPrevFromServer();   // サーバーから最新の先週値を取得して上書き
+// サーバーから設定→在庫値の順で取得して反映
+(async () => {
+  const got = await fetchConfigFromServer();
+  if (got) { location.reload(); return; }  // 設定が更新されたら再読込で確実に反映
+  fetchPrevFromServer();
+})();
 
 function updateLastCheckInfo(){
   const el = document.getElementById('last-check-info');
@@ -897,6 +942,7 @@ function saveSettings(){
   saveItemSettings(newSettings);
   saveItems(ITEMS);
   closeSettings();
+  saveConfigToServer();   // サーバーにも設定を保存（全端末同期・初期値に戻らないように）
   showToast('設定を保存しました');
   renderGroups();
   attachNavHandlers();
