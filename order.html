@@ -260,21 +260,22 @@ async function fetchConfigFromServer(){
   const url = loadWebhookUrl();
   if (!url) return false;
   try {
-    const r = await fetch(url + '?action=config');
+    const r = await fetch(url + '?action=config&t=' + Date.now());
     const data = await r.json();
+    if (!data || (!data.items && !data.itemSettings)) return false;
+    const serverTs = Number(data.ts || 0);
+    const localTs = Number(localStorage.getItem('freezer_config_ts') || 0);
+    if (serverTs <= localTs) return false;
     let changed = false;
-    if (data && Array.isArray(data.items) && data.items.length) {
+    if (Array.isArray(data.items) && data.items.length) {
       const next = JSON.stringify(data.items);
-      if (localStorage.getItem('freezer_items') !== next) {
-        localStorage.setItem('freezer_items', next); changed = true;
-      }
+      if (localStorage.getItem('freezer_items') !== next) { localStorage.setItem('freezer_items', next); changed = true; }
     }
-    if (data && data.itemSettings && typeof data.itemSettings === 'object') {
+    if (data.itemSettings && typeof data.itemSettings === 'object') {
       const next = JSON.stringify(data.itemSettings);
-      if (localStorage.getItem('freezer_item_settings') !== next) {
-        localStorage.setItem('freezer_item_settings', next); changed = true;
-      }
+      if (localStorage.getItem('freezer_item_settings') !== next) { localStorage.setItem('freezer_item_settings', next); changed = true; }
     }
+    localStorage.setItem('freezer_config_ts', String(serverTs));
     return changed;
   } catch(e) { console.warn('設定サーバー取得失敗:', e); }
   return false;

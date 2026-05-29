@@ -335,41 +335,44 @@ function loadItemSettings(){
 }
 function saveItemSettings(s){ localStorage.setItem('freezer_item_settings', JSON.stringify(s)); }
 
-/* === サーバー（GAS）への設定同期 === */
-// 設定一式（品目マスタ＋基準値）をサーバーに保存
+/* === サーバー（GAS）への設定同期（タイムスタンプで新しい方を優先） === */
 function saveConfigToServer(){
   const url = loadWebhookUrl();
   if (!url) return;
+  const ts = Date.now();
+  localStorage.setItem('freezer_config_ts', String(ts));  // ローカルの最終保存時刻を記録
   const payload = {
     type: 'config',
     items: JSON.parse(localStorage.getItem('freezer_items') || 'null') || [],
     itemSettings: JSON.parse(localStorage.getItem('freezer_item_settings') || '{}'),
-    ts: Date.now(),
+    ts: ts,
   };
-  // no-cors で送信（GAS側で受信）
   fetch(url, { method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain'}, body: JSON.stringify(payload) })
     .catch(e => console.warn('設定サーバー保存失敗:', e));
 }
-// サーバーから設定を取得して localStorage に反映。差分があった時だけ true（無限リロード防止）
+// サーバーから設定取得。サーバーの方が新しい時だけ反映（ローカルの未送信変更を消さない）
 async function fetchConfigFromServer(){
   const url = loadWebhookUrl();
   if (!url) return false;
   try {
-    const r = await fetch(url + '?action=config');
+    // キャッシュ回避のため t= を付与
+    const r = await fetch(url + '?action=config&t=' + Date.now());
     const data = await r.json();
+    if (!data || (!data.items && !data.itemSettings)) return false;
+    const serverTs = Number(data.ts || 0);
+    const localTs = Number(localStorage.getItem('freezer_config_ts') || 0);
+    // サーバーが古い（=ローカルの方が新しい）なら何もしない
+    if (serverTs <= localTs) return false;
     let changed = false;
-    if (data && Array.isArray(data.items) && data.items.length) {
+    if (Array.isArray(data.items) && data.items.length) {
       const next = JSON.stringify(data.items);
-      if (localStorage.getItem('freezer_items') !== next) {
-        localStorage.setItem('freezer_items', next); changed = true;
-      }
+      if (localStorage.getItem('freezer_items') !== next) { localStorage.setItem('freezer_items', next); changed = true; }
     }
-    if (data && data.itemSettings && typeof data.itemSettings === 'object') {
+    if (data.itemSettings && typeof data.itemSettings === 'object') {
       const next = JSON.stringify(data.itemSettings);
-      if (localStorage.getItem('freezer_item_settings') !== next) {
-        localStorage.setItem('freezer_item_settings', next); changed = true;
-      }
+      if (localStorage.getItem('freezer_item_settings') !== next) { localStorage.setItem('freezer_item_settings', next); changed = true; }
     }
+    localStorage.setItem('freezer_config_ts', String(serverTs));  // 取得したサーバー時刻を記録
     return changed;
   } catch(e) { console.warn('設定サーバー取得失敗:', e); }
   return false;
