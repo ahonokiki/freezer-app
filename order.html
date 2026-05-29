@@ -26,6 +26,7 @@
   .container{max-width:480px;margin:0 auto;padding:16px 12px 0;}
   .info-bar{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--muted);display:flex;justify-content:space-between;align-items:center;gap:8px;}
   .info-bar .date{font-weight:700;color:var(--text);font-size:14px;}
+  .latest-memo{font-size:12px;color:var(--accent2);font-weight:700;margin-top:4px;line-height:1.5;}
   .info-bar .reload{background:var(--accent2);color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;}
   .notice{background:var(--warn-bg);color:var(--warn);padding:8px 12px;border-radius:8px;font-size:11px;margin-bottom:12px;border-left:3px solid var(--warn);}
   .vendor-tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
@@ -128,6 +129,7 @@
     <div>
       <div>最新在庫確認</div>
       <div class="date" id="latest-info">―</div>
+      <div class="latest-memo" id="latest-memo"></div>
     </div>
     <button class="reload" id="reload-btn">🔄 取得</button>
   </div>
@@ -334,6 +336,16 @@ function updateLatestInfo() {
   } else {
     el.textContent = '― 未取得 ―';
   }
+  // 混雑度・霜・メモ
+  const memoEl = document.getElementById('latest-memo');
+  if (memoEl) {
+    const parts = [];
+    if (latestMeta.stock_level) parts.push(`混雑度: ${latestMeta.stock_level}`);
+    if (latestMeta.frost_level) parts.push(`霜: ${latestMeta.frost_level}`);
+    let line = parts.length ? `🧊 ${parts.join(' / ')}` : '';
+    if (latestMeta.memo) line += (line ? '<br>' : '') + `📝 ${latestMeta.memo}`;
+    memoEl.innerHTML = line;
+  }
 }
 
 async function fetchLatest() {
@@ -347,7 +359,7 @@ async function fetchLatest() {
     const data = await r.json();
     if (data && data.counts) {
       latestCounts = data.counts;
-      latestMeta = { ts: data.ts, date: data.date, reporter: data.reporter, memo: data.memo };
+      latestMeta = { ts: data.ts, date: data.date, reporter: data.reporter, memo: data.memo, stock_level: data.stock_level, frost_level: data.frost_level };
       localStorage.setItem('freezer_latest_remote', JSON.stringify(latestCounts));
       localStorage.setItem('freezer_latest_meta', JSON.stringify(latestMeta));
       updateLatestInfo();
