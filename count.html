@@ -83,6 +83,8 @@
   .vrow input:focus{border-color:var(--accent2);}
   .vrow .vdel{background:#fff;border:1px solid var(--border);color:var(--red);width:36px;height:36px;border-radius:6px;cursor:pointer;font-size:14px;flex-shrink:0;}
   .vrow .vfixed{flex:1;padding:8px 10px;font-size:13px;color:var(--muted);background:#f5f5f5;border-radius:6px;}
+  .scard-check{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);font-weight:700;cursor:pointer;}
+  .scard-check input{width:18px;height:18px;accent-color:var(--accent2);}
   .scard-row{display:flex;gap:6px;align-items:center;margin-bottom:6px;}
   .scard-row:last-child{margin-bottom:0;}
   .scard-label{font-size:10px;font-weight:700;color:var(--muted);min-width:60px;}
@@ -775,6 +777,9 @@ function renderSettingsCards(){
         <div class="scard-row"><span class="scard-label">発注商品名</span>
           <input type="text" data-item-id="${it.id}" data-item-key="order_name" value="${escHtml(it.order_name || it.name)}" placeholder="SMS本文に使う名前">
         </div>
+        <div class="scard-row">
+          <label class="scard-check"><input type="checkbox" data-item-id="${it.id}" data-item-key="no_order_unit" ${it.no_order_unit ? 'checked' : ''}> 発注SMSで単位を省略（「6箱」等が名前に含まれる時）</label>
+        </div>
         <div class="scard-row"><span class="scard-label">グループ</span>
           <select data-group-id="${it.id}">${groupOpts}</select>
         </div>
@@ -858,7 +863,9 @@ function syncFormValuesToItems(){
   document.querySelectorAll('[data-item-id]').forEach(inp => {
     const id = parseInt(inp.dataset.itemId, 10);
     const it = ITEMS.find(x => x.id === id);
-    if (it) it[inp.dataset.itemKey] = inp.value;
+    if (!it) return;
+    if (inp.type === 'checkbox') it[inp.dataset.itemKey] = inp.checked;
+    else it[inp.dataset.itemKey] = inp.value;
   });
   document.querySelectorAll('[data-vendor-id]').forEach(sel => {
     const id = parseInt(sel.dataset.vendorId, 10);

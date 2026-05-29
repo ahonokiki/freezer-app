@@ -477,7 +477,8 @@ function buildSmsText(vendorKey) {
     const qty = st && st.qty ? parseFloat(st.qty) : 0;
     if (qty > 0) {
       const displayName = (it.order_name && it.order_name.trim()) ? it.order_name : it.name;
-      parts.push(`${displayName}${st.qty}${it.unit}`);
+      const unit = it.no_order_unit ? '' : it.unit;
+      parts.push(`${displayName}${st.qty}${unit}`);
     }
   });
   if (!parts.length) return '';
