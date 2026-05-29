@@ -47,6 +47,7 @@
   .oi-info{flex:1;min-width:0;}
   .oi-name{font-size:14px;font-weight:700;}
   .oi-stock{font-size:11px;color:var(--muted);margin-top:2px;}
+  .oi-ordername{font-size:11px;color:var(--accent2);font-weight:700;margin-top:2px;}
   .oi-qty-wrap{display:flex;align-items:center;background:var(--input-bg);border:1.5px solid var(--border);border-radius:8px;overflow:hidden;width:90px;}
   .oi-qty-wrap input{width:50px;border:none;background:transparent;padding:6px 4px;font-size:15px;font-weight:600;text-align:right;outline:none;font-family:inherit;}
   .oi-qty-wrap input:disabled{color:#cdd5e2;}
@@ -430,6 +431,7 @@ function renderVendors() {
       row.innerHTML = `
         <div class="oi-info">
           <div class="oi-name">${it.name}</div>
+          ${(it.order_name && it.order_name.trim() && it.order_name !== it.name) ? `<div class="oi-ordername">📤 ${it.order_name}</div>` : ''}
           <div class="oi-stock">${stockStr}${s.min!=null&&s.min!==''?` / 最小${s.min}`:''}</div>
         </div>
         <div class="oi-qty-wrap">
