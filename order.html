@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>冷凍庫 発注メール</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#f0f2f5; --card:#ffffff; --accent:#1a3a6b; --accent2:#2e5ca8;
+    --light-accent:#e8eef8; --text:#1a1a2e; --muted:#6b7a99; --border:#dde3ef;
+    --input-bg:#f7f9fc; --green:#1a7a4a; --green-bg:#e8f5ee; --red:#c0392b;
+    --warn:#d68000; --warn-bg:#fff3e0;
+    --shadow:0 2px 12px rgba(26,58,107,0.10); --radius:16px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  body{font-family:'Noto Sans JP','Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:0 0 40px;}
+  header{background:var(--accent);color:#fff;padding:20px 20px 16px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10;box-shadow:0 2px 8px rgba(26,58,107,0.18);}
+  header h1{font-size:18px;font-weight:700;letter-spacing:0.04em;}
+  header .subtitle{font-size:10px;font-weight:500;color:rgba(255,255,255,0.75);line-height:1.4;text-align:right;margin-left:auto;}
+  .settings-btn{background:transparent;border:none;color:rgba(255,255,255,0.8);font-size:20px;cursor:pointer;padding:4px;}
+  .container{max-width:480px;margin:0 auto;padding:16px 12px 0;}
+  .info-bar{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--muted);display:flex;justify-content:space-between;align-items:center;gap:8px;}
+  .info-bar .date{font-weight:700;color:var(--text);font-size:14px;}
+  .info-bar .reload{background:var(--accent2);color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;}
+  .notice{background:var(--warn-bg);color:var(--warn);padding:8px 12px;border-radius:8px;font-size:11px;margin-bottom:12px;border-left:3px solid var(--warn);}
+  .vendor-tabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
+  .vtab{padding:8px 12px;border:2px solid var(--border);border-radius:10px;background:#fff;color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;}
+  .vtab.has-order{color:var(--accent2);border-color:var(--accent2);}
+  .vtab.active{border-color:var(--accent2);background:var(--accent);color:#fff;}
+  .vtab.active.has-order{color:#fff;}
+  .vtab .count-badge{background:var(--warn);color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;margin-left:4px;}
+  .vtab.active .count-badge{background:#fff;color:var(--accent);}
+  .vendor-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:14px;overflow:hidden;display:none;}
+  .vendor-card.show{display:block;}
+  .vc-head{background:var(--accent);color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;}
+  .vc-name{font-size:14px;font-weight:700;}
+  .vc-phone{font-size:12px;color:rgba(255,255,255,0.85);}
+  .vc-phone a{color:#fff;text-decoration:underline;}
+  .order-item{display:flex;align-items:center;padding:10px 14px;border-bottom:1px solid var(--border);gap:10px;}
+  .order-item:last-child{border-bottom:none;}
+  .oi-check{width:20px;height:20px;accent-color:var(--accent2);flex-shrink:0;cursor:pointer;}
+  .oi-info{flex:1;min-width:0;}
+  .oi-name{font-size:14px;font-weight:700;}
+  .oi-stock{font-size:11px;color:var(--muted);margin-top:2px;}
+  .oi-qty-wrap{display:flex;align-items:center;background:var(--input-bg);border:1.5px solid var(--border);border-radius:8px;overflow:hidden;width:90px;}
+  .oi-qty-wrap input{width:50px;border:none;background:transparent;padding:6px 4px;font-size:15px;font-weight:600;text-align:right;outline:none;font-family:inherit;}
+  .oi-qty-wrap input:disabled{color:#cdd5e2;}
+  .oi-unit{padding:0 6px 0 2px;font-size:11px;font-weight:700;color:var(--muted);}
+  .preview{background:var(--light-accent);margin:10px 14px;padding:12px;border-radius:10px;font-size:14px;line-height:1.6;white-space:pre-wrap;border-left:3px solid var(--accent2);min-height:40px;}
+  .preview.empty{color:var(--muted);font-style:italic;}
+  .copy-btn{width:calc(100% - 28px);margin:0 14px 14px;padding:12px;background:#fff;border:1.5px solid var(--accent2);color:var(--accent2);border-radius:10px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;}
+  .copy-btn.copied{background:var(--green-bg);border-color:var(--green);color:var(--green);}
+  .empty-state{text-align:center;padding:40px 20px;color:var(--muted);font-size:13px;}
+  /* 行背景: 最小未満=赤 / 最小=黄 / 最大以上=薄緑 */
+  .order-item.bg-low{background:#fde8e8;}
+  .order-item.bg-warn{background:#fff8dc;}
+  .order-item.bg-high{background:#e8f5e9;}
+  /* 設定テーブル */
+  .settings-cards{margin:10px 0;padding-bottom:80px;}
+  .sgroup{margin-bottom:14px;}
+  .sgroup-head{font-size:12px;font-weight:700;color:var(--accent);background:var(--light-accent);padding:6px 10px;border-radius:6px;margin-bottom:6px;}
+  .scard{border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:8px;background:#fafbfd;}
+  .scard-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
+  .scard-id{font-size:10px;color:var(--muted);font-weight:700;}
+  .scard-actions{display:flex;gap:4px;}
+  .scard-actions button{background:#fff;border:1px solid var(--border);color:var(--muted);font-size:12px;width:28px;height:28px;border-radius:6px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;padding:0;}
+  .scard-actions button:active{background:var(--light-accent);}
+  .scard-actions .del-btn{color:var(--red);}
+  .add-item-btn{width:100%;padding:10px;background:#fff;border:2px dashed var(--accent2);color:var(--accent2);border-radius:8px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;margin-top:4px;}
+  .add-item-btn:active{background:var(--light-accent);}
+  .scard-row{display:flex;gap:6px;align-items:center;margin-bottom:6px;}
+  .scard-row:last-child{margin-bottom:0;}
+  .scard-label{font-size:10px;font-weight:700;color:var(--muted);min-width:60px;}
+  .scard-row input, .scard-row select{flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit;background:#fff;outline:none;min-width:0;}
+  .scard-row input:focus, .scard-row select:focus{border-color:var(--accent2);}
+  .scard-row.split input{text-align:center;}
+  .scard-row.split .scard-label{min-width:auto;}
+  .scard-row.split{gap:4px;}
+  .scard-row.split .scard-cell{display:flex;align-items:center;gap:3px;flex:1;}
+  .scard-row.split .scard-cell label{font-size:10px;color:var(--muted);font-weight:700;}
+  .settings-section-title{font-size:12px;font-weight:700;color:var(--accent);margin:14px 0 4px;padding-bottom:4px;border-bottom:2px solid var(--accent2);}
+  /* 編集ロック状態 */
+  .settings-form.locked input,
+  .settings-form.locked select,
+  .settings-form.locked textarea{
+    background:#eee !important; color:#777 !important; pointer-events:none; cursor:not-allowed;
+  }
+  .unlock-btn{position:sticky;top:0;z-index:5;display:block;width:100%;padding:18px;background:var(--warn);color:#fff;border:none;border-radius:12px;font-size:18px;font-weight:700;font-family:inherit;margin-bottom:14px;cursor:pointer;letter-spacing:0.08em;box-shadow:0 4px 14px rgba(214,128,0,0.45);}
+  .unlock-btn:active{background:#b86d00;transform:scale(0.98);}
+  .settings-form:not(.locked) .unlock-btn{display:none;}
+  .settings-locked-msg, .settings-edit-msg{display:none;}
+  .settings-form.locked .settings-locked-msg{display:block;}
+  .settings-form:not(.locked) .settings-edit-msg{display:block;}
+  .toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:var(--green);color:#fff;padding:14px 28px;border-radius:30px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,0.25);opacity:0;transition:opacity 0.3s;pointer-events:none;z-index:100;}
+  .toast.show{opacity:1;}
+  .toast.error{background:var(--red);}
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:50;display:none;align-items:center;justify-content:center;padding:20px;}
+  .modal-bg.show{display:flex;}
+  .modal{background:#fff;border-radius:var(--radius);padding:20px;max-width:420px;width:100%;max-height:85vh;overflow-y:auto;}
+  .modal h2{font-size:16px;margin-bottom:14px;color:var(--accent);}
+  .modal label{display:block;font-size:11px;font-weight:700;color:var(--muted);margin:10px 0 4px;}
+  .modal input{width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;background:var(--input-bg);outline:none;}
+  .vendor-edit-row{display:flex;gap:8px;align-items:center;margin-bottom:6px;}
+  .vendor-edit-row input{flex:1;}
+  .modal-actions{display:flex;gap:8px;margin-top:16px;position:sticky;bottom:-20px;background:#fff;padding:12px 0;z-index:10;border-top:1px solid var(--border);}
+  .modal-actions button{flex:1;padding:14px;border-radius:8px;font-weight:700;font-family:inherit;cursor:pointer;border:none;font-size:15px;}
+  .modal-actions .save{background:var(--accent);color:#fff;}
+  .modal-actions .cancel{background:#eee;color:var(--text);}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>冷凍庫 発注メール</h1>
+  <span class="subtitle">株式会社若林商店</span>
+  <button class="settings-btn" id="settings-btn" title="設定">⚙</button>
+</header>
+
+<div class="container">
+
+  <div class="info-bar">
+    <div>
+      <div>最新在庫確認</div>
+      <div class="date" id="latest-info">―</div>
+    </div>
+    <button class="reload" id="reload-btn">🔄 取得</button>
+  </div>
+
+  <div class="notice">
+    💡 在庫が最小以下になった品は発注数を自動入力（赤/黄背景）。手で数量調整→業者ごとにコピー→SMSアプリに貼り付け
+  </div>
+
+  <div class="vendor-tabs" id="vendor-tabs"></div>
+
+  <div id="vendors-area"></div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- 設定モーダル -->
+<div class="modal-bg" id="modal-settings">
+  <div class="modal">
+    <h2>⚙ 設定</h2>
+
+    <div class="settings-form" id="settings-form">
+      <div class="settings-section-title">Webhook URL</div>
+      <input type="text" id="setting-webhook" placeholder="https://script.google.com/macros/s/.../exec">
+
+      <div class="settings-section-title">業者の電話番号</div>
+      <div id="vendor-edit-list"></div>
+
+      <p style="font-size:11px;color:var(--muted);margin-top:14px;line-height:1.5;background:var(--light-accent);padding:10px;border-radius:8px;">
+        💡 品目別の設定（品名・最小/最大・発注数・業者など）は<strong>冷凍在庫表（count.html）</strong>側で行ってください。
+      </p>
+    </div>
+
+    <div class="modal-actions">
+      <button class="cancel" onclick="closeSettings()">閉じる</button>
+      <button class="save" onclick="saveSettings()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* === config.js を埋め込み（単一ファイル化のため） === */
+const WEBHOOK_URL = '';
+const DEFAULT_VENDORS = [
+  { key: 'chiba',   name: '千葉フード',       phone: '' },
+  { key: 'nakayama',name: '中山',             phone: '' },
+  { key: 'unotore', name: 'ウノトレ',         phone: '' },
+  { key: 'akutsu',  name: '阿久津ブロイラー', phone: '' },
+  { key: 'mitsuba', name: 'ミツバミート',     phone: '' },
+  { key: '',        name: '（空欄）',         phone: '' },
+];
+const DEFAULT_ITEMS = [
+  { id: 1,  group: 'A', name: '手羽先',      unit: 'ケース', vendor: 'chiba' },
+  { id: 2,  group: 'A', name: 'ぼんじり',    unit: 'ケース', vendor: 'chiba' },
+  { id: 3,  group: 'A', name: '鶏胸',        unit: 'ケース', vendor: 'chiba' },
+  { id: 4,  group: 'A', name: 'レバー',      unit: 'ケース', vendor: 'chiba' },
+  { id: 5,  group: 'A', name: 'ガツ',        unit: 'ケース', vendor: 'nakayama' },
+  { id: 6,  group: 'A', name: '豚ひき 18kg', unit: 'ケース', vendor: 'unotore' },
+  { id: 7,  group: 'A', name: '鶏ひき 24kg', unit: 'ケース', vendor: '' },
+  { id: 8,  group: 'A', name: '豚こま 24kg', unit: 'ケース', vendor: 'unotore' },
+  { id: 9,  group: 'B', name: '鶏骨 10kg',   unit: '箱', vendor: 'chiba' },
+  { id:10,  group: 'B', name: 'モミジ 5kg',  unit: '袋', vendor: 'akutsu' },
+  { id:11,  group: 'B', name: 'モミジ 3kg',  unit: '袋', vendor: 'akutsu' },
+  { id:12,  group: 'B', name: '鶏骨 3kg',    unit: '袋', vendor: 'akutsu' },
+  { id:13,  group: 'B', name: 'ゲンコツ 5kg',unit: '袋', vendor: 'nakayama' },
+  { id:14,  group: 'B', name: '背骨 10kg',     unit: '袋', vendor: 'nakayama' },
+  { id:15,  group: 'B', name: 'ゲンコツ 10kg', unit: '袋', vendor: 'nakayama' },
+  { id:16,  group: 'B', name: '脂 10kg',       unit: '袋', vendor: 'nakayama' },
+  { id:17,  group: 'B', name: '脂 2kg',        unit: '袋', vendor: '' },
+  { id:18,  group: 'X', name: '東煌バラ',       unit: '袋', vendor: 'unotore' },
+  { id:19,  group: 'X', name: 'スジナシヒレ',   unit: '箱', vendor: 'unotore' },
+  { id:20,  group: 'X', name: '国産鶏もも',     unit: '箱', vendor: 'unotore' },
+  { id:21,  group: 'X', name: '国産鶏胸',       unit: '箱', vendor: 'unotore' },
+  { id:22,  group: 'X', name: '豚ひき用小肉',   unit: '袋', vendor: '' },
+  { id:23,  group: 'X', name: '鶏ひき用小肉',   unit: '袋', vendor: '' },
+];
+const GROUP_LABELS = {
+  A: 'グループA 厳密管理（ケース）',
+  B: 'グループB 中間管理（袋・箱）',
+  X: '未分類',
+};
+function loadItems(){
+  const s=localStorage.getItem('freezer_items');
+  if(s){
+    try{
+      const items = JSON.parse(s);
+      const map = {'unotore_ude':'unotore', 'unotore_sheet':'unotore', 'unknown':''};
+      let migrated = false;
+      items.forEach(it => {
+        if (map[it.vendor] !== undefined) { it.vendor = map[it.vendor]; migrated = true; }
+        if (it.group === 'C') { it.group = 'B'; migrated = true; }
+        if (it.unit === '%')  { it.unit = '袋'; migrated = true; }
+      });
+      const MIGRATION_VERSION = 'v3-stable-add';
+      if (localStorage.getItem('freezer_items_migration') !== MIGRATION_VERSION) {
+        const existingIds = new Set(items.map(it => it.id));
+        DEFAULT_ITEMS.forEach(def => {
+          if (!existingIds.has(def.id)) { items.push(def); migrated = true; }
+        });
+        localStorage.setItem('freezer_items_migration', MIGRATION_VERSION);
+      }
+      if (migrated) localStorage.setItem('freezer_items', JSON.stringify(items));
+      return items;
+    }catch(e){}
+  }
+  localStorage.setItem('freezer_items_migration', 'v3-stable-add');
+  return DEFAULT_ITEMS;
+}
+function saveItems(i){ localStorage.setItem('freezer_items', JSON.stringify(i)); }
+function loadVendors(){
+  const s=localStorage.getItem('freezer_vendors');
+  if(s){
+    try{
+      const v = JSON.parse(s);
+      if (v.length !== DEFAULT_VENDORS.length) {
+        localStorage.setItem('freezer_vendors', JSON.stringify(DEFAULT_VENDORS));
+        return DEFAULT_VENDORS;
+      }
+      return v;
+    }catch(e){}
+  }
+  return DEFAULT_VENDORS;
+}
+function saveVendors(v){ localStorage.setItem('freezer_vendors', JSON.stringify(v)); }
+function loadWebhookUrl(){ return localStorage.getItem('freezer_webhook') || WEBHOOK_URL; }
+function saveWebhookUrl(u){ localStorage.setItem('freezer_webhook', u); }
+function loadItemSettings(){
+  const s = localStorage.getItem('freezer_item_settings');
+  if (s) { try { return JSON.parse(s); } catch(e){} }
+  return {};
+}
+function saveItemSettings(s){ localStorage.setItem('freezer_item_settings', JSON.stringify(s)); }
+</script>
+<script>
+const ITEMS = loadItems();
+const VENDORS = loadVendors();
+const vendorMap = Object.fromEntries(VENDORS.map(v => [v.key, v]));
+let currentVendor = VENDORS[0].key;
+let latestCounts = JSON.parse(localStorage.getItem('freezer_latest_remote') || '{}');
+let latestMeta = JSON.parse(localStorage.getItem('freezer_latest_meta') || '{}');
+// 発注選択状態（このセッション）
+const orderState = {}; // vendor -> { itemId: { checked: bool, qty: number } }
+VENDORS.forEach(v => orderState[v.key] = {});
+
+renderTabs();
+renderVendors();
+updateLatestInfo();
+fetchLatest();   // 起動時自動取得
+
+document.getElementById('reload-btn').addEventListener('click', fetchLatest);
+
+function updateLatestInfo() {
+  const el = document.getElementById('latest-info');
+  // ts (送信時刻) があれば優先、なければ date のみで表示
+  const t = latestMeta.ts ? new Date(latestMeta.ts) : (latestMeta.date ? new Date(latestMeta.date) : null);
+  if (t && !isNaN(t)) {
+    const wd = ['日','月','火','水','木','金','土'][t.getDay()];
+    const y = t.getFullYear();
+    const m = String(t.getMonth()+1).padStart(2,'0');
+    const d = String(t.getDate()).padStart(2,'0');
+    const hh = String(t.getHours()).padStart(2,'0');
+    const mm = String(t.getMinutes()).padStart(2,'0');
+    const hasTime = latestMeta.ts != null;
+    el.textContent = hasTime
+      ? `${y}年${m}月${d}日(${wd}) ${hh}:${mm}`
+      : `${y}年${m}月${d}日(${wd})`;
+  } else {
+    el.textContent = '― 未取得 ―';
+  }
+}
+
+async function fetchLatest() {
+  const url = loadWebhookUrl();
+  if (!url) {
+    showToast('Webhook URL未設定', true);
+    return;
+  }
+  try {
+    const r = await fetch(url + '?action=latest');
+    const data = await r.json();
+    if (data && data.counts) {
+      latestCounts = data.counts;
+      latestMeta = { ts: data.ts, date: data.date, reporter: data.reporter, memo: data.memo };
+      localStorage.setItem('freezer_latest_remote', JSON.stringify(latestCounts));
+      localStorage.setItem('freezer_latest_meta', JSON.stringify(latestMeta));
+      updateLatestInfo();
+      renderVendors();
+      showToast('最新を取得しました');
+    } else {
+      showToast('データなし', true);
+    }
+  } catch(e) {
+    showToast('取得失敗: ' + e.message, true);
+  }
+}
+
+function renderTabs() {
+  const tabsEl = document.getElementById('vendor-tabs');
+  tabsEl.innerHTML = '';
+  VENDORS.forEach(v => {
+    const hasItems = ITEMS.some(it => it.vendor === v.key);
+    if (!hasItems) return;
+    const btn = document.createElement('button');
+    btn.className = 'vtab' + (v.key === currentVendor ? ' active' : '');
+    btn.dataset.key = v.key;
+    btn.innerHTML = `${v.name} <span class="count-badge" data-badge="${v.key}">0</span>`;
+    btn.addEventListener('click', () => {
+      currentVendor = v.key;
+      renderTabs();
+      renderVendors();
+    });
+    tabsEl.appendChild(btn);
+  });
+  updateBadges();
+}
+
+function updateBadges() {
+  VENDORS.forEach(v => {
+    const n = Object.values(orderState[v.key] || {}).filter(x => x.qty && parseFloat(x.qty) > 0).length;
+    const el = document.querySelector(`[data-badge="${v.key}"]`);
+    if (el) {
+      el.textContent = n;
+      el.style.display = n > 0 ? '' : 'none';
+    }
+    // タブ全体の色を切替（発注あり=青、なし=グレー）
+    const tabEl = document.querySelector(`.vtab[data-key="${v.key}"]`);
+    if (tabEl) tabEl.classList.toggle('has-order', n > 0);
+  });
+}
+
+function renderVendors() {
+  const area = document.getElementById('vendors-area');
+  area.innerHTML = '';
+  VENDORS.forEach(v => {
+    const items = ITEMS.filter(it => it.vendor === v.key);
+    if (!items.length) return;
+    const card = document.createElement('div');
+    card.className = 'vendor-card' + (v.key === currentVendor ? ' show' : '');
+    card.dataset.key = v.key;
+
+    const phoneTel = v.phone ? `<a href="tel:${v.phone}">${v.phone}</a>` : '<span style="opacity:0.6">未設定</span>';
+    card.innerHTML = `
+      <div class="vc-head">
+        <div class="vc-name">${v.name}</div>
+        <div class="vc-phone">📞 ${phoneTel}</div>
+      </div>
+      <div class="items-wrap"></div>
+      <div class="preview empty" data-preview="${v.key}">（チェックを入れると本文が表示されます）</div>
+      <button class="copy-btn" data-copy="${v.key}">📋 SMS本文をコピー</button>
+    `;
+    const wrap = card.querySelector('.items-wrap');
+    const settings = loadItemSettings();
+    items.forEach(it => {
+      const stock = latestCounts[it.id];
+      const hasStock = (stock !== undefined && stock !== null && stock !== '' && !isNaN(parseFloat(stock)));
+      const stockNum = hasStock ? parseFloat(stock) : null;
+      const stockStr = hasStock ? `現在庫: ${stock}${it.unit}` : '現在庫: 未入力';
+      const s = settings[it.id] || {};
+      // 行背景: 最小未満=赤 / 最小=黄 / 最大以上=薄緑
+      let bgClass = '';
+      const minSet = s.min !== undefined && s.min !== null && s.min !== '';
+      const maxSet = s.max !== undefined && s.max !== null && s.max !== '';
+      const orderSet = s.order !== undefined && s.order !== null && s.order !== '';
+      const belowMin = hasStock && minSet && stockNum < parseFloat(s.min);
+      const atMin    = hasStock && minSet && stockNum === parseFloat(s.min);
+      const atOrAboveMax = hasStock && maxSet && stockNum >= parseFloat(s.max);
+      if (belowMin) bgClass = 'bg-low';
+      else if (atMin) bgClass = 'bg-warn';
+      else if (atOrAboveMax) bgClass = 'bg-high';
+      // 自動入力: 最小以下（未満 or 等しい）かつ発注数設定済み → 発注対象
+      if (!orderState[v.key][it.id] && (belowMin || atMin) && orderSet) {
+        orderState[v.key][it.id] = { qty: s.order };
+      }
+      const state = orderState[v.key][it.id] || {};
+      const row = document.createElement('div');
+      row.className = 'order-item ' + bgClass;
+      row.innerHTML = `
+        <div class="oi-info">
+          <div class="oi-name">${it.name}</div>
+          <div class="oi-stock">${stockStr}${s.min!=null&&s.min!==''?` / 最小${s.min}`:''}</div>
+        </div>
+        <div class="oi-qty-wrap">
+          <input type="number" inputmode="decimal" step="0.5" min="0" data-qty="${it.id}" value="${state.qty || ''}" placeholder="―">
+          <span class="oi-unit">${it.unit}</span>
+        </div>
+      `;
+      wrap.appendChild(row);
+    });
+    area.appendChild(card);
+
+    // event handlers: 数量入力のみ。qty>0 で発注対象
+    card.querySelectorAll('[data-qty]').forEach(inp => {
+      inp.addEventListener('input', () => {
+        const id = inp.dataset.qty;
+        orderState[v.key][id] = orderState[v.key][id] || {};
+        orderState[v.key][id].qty = inp.value;
+        updatePreview(v.key);
+        updateBadges();
+      });
+    });
+    card.querySelector(`[data-copy="${v.key}"]`).addEventListener('click', () => copyVendor(v.key));
+    updatePreview(v.key);
+  });
+}
+
+function buildSmsText(vendorKey) {
+  const v = vendorMap[vendorKey];
+  const items = ITEMS.filter(it => it.vendor === vendorKey);
+  const parts = [];
+  items.forEach(it => {
+    const st = orderState[vendorKey][it.id];
+    const qty = st && st.qty ? parseFloat(st.qty) : 0;
+    if (qty > 0) {
+      const displayName = (it.order_name && it.order_name.trim()) ? it.order_name : it.name;
+      parts.push(`${displayName}${st.qty}${it.unit}`);
+    }
+  });
+  if (!parts.length) return '';
+  return `${v.name}\n${parts.join('\n')}\nお願いします`;
+}
+
+function updatePreview(vendorKey) {
+  const el = document.querySelector(`[data-preview="${vendorKey}"]`);
+  if (!el) return;
+  const text = buildSmsText(vendorKey);
+  if (text) {
+    el.textContent = text;
+    el.classList.remove('empty');
+  } else {
+    el.textContent = '（発注したい品の数量を入れると本文が表示されます）';
+    el.classList.add('empty');
+  }
+}
+
+function copyVendor(vendorKey) {
+  const text = buildSmsText(vendorKey);
+  if (!text) { showToast('発注する品にチェックを入れてください', true); return; }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => onCopied(vendorKey));
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    onCopied(vendorKey);
+  }
+}
+function onCopied(vendorKey) {
+  const btn = document.querySelector(`[data-copy="${vendorKey}"]`);
+  btn.classList.add('copied');
+  btn.innerHTML = '✅ コピーしました';
+  setTimeout(() => {
+    btn.classList.remove('copied');
+    btn.innerHTML = '📋 SMS本文をコピー';
+  }, 2000);
+  showToast('SMSアプリに貼り付けてください');
+}
+
+function showToast(msg, isError=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.toggle('error', isError);
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// 設定モーダル
+document.getElementById('settings-btn').addEventListener('click', openSettings);
+function openSettings(){
+  document.getElementById('setting-webhook').value = loadWebhookUrl();
+  const list = document.getElementById('vendor-edit-list');
+  list.innerHTML = '';
+  VENDORS.forEach(v => {
+    if (v.key === '') return; // 空欄業者は電話番号入力不要
+    const div = document.createElement('div');
+    div.className = 'vendor-edit-row';
+    div.innerHTML = `<span style="font-size:12px;font-weight:700;min-width:90px;">${v.name}</span><input type="text" inputmode="tel" placeholder="電話番号" value="${v.phone||''}" data-vkey="${v.key}">`;
+    list.appendChild(div);
+  });
+  document.getElementById('modal-settings').classList.add('show');
+}
+
+// 品目別 設定UIは count.html に移管したため、関連helper関数は削除済み
+function closeSettings(){ document.getElementById('modal-settings').classList.remove('show'); }
+function saveSettings(){
+  // order.html は Webhook URL と 業者電話番号 のみ編集（品目設定は count.html で管理）
+  const newUrl = document.getElementById('setting-webhook').value.trim();
+  const newPhones = {};
+  document.querySelectorAll('[data-vkey]').forEach(inp => {
+    newPhones[inp.dataset.vkey] = inp.value.trim();
+  });
+
+  // 差分検出
+  const diffs = [];
+  if (newUrl !== loadWebhookUrl()) diffs.push(`Webhook URL: 変更あり`);
+  VENDORS.forEach(v => {
+    if (v.key === '') return;
+    const oldP = v.phone || '';
+    const newP = newPhones[v.key] || '';
+    if (oldP !== newP) diffs.push(`${v.name} 電話番号: [${oldP||'未設定'}] → [${newP||'未設定'}]`);
+  });
+
+  if (diffs.length === 0) {
+    showToast('変更はありませんでした');
+    closeSettings();
+    return;
+  }
+  const msg = `本当に以下の設定を変更しますか？\n\n${diffs.join('\n')}\n\nOK で保存します。`;
+  if (!confirm(msg)) return;
+
+  // 保存（Webhook と Vendor 電話番号のみ。品目関連は触らない！）
+  saveWebhookUrl(newUrl);
+  VENDORS.forEach(v => { if (v.key !== '') v.phone = newPhones[v.key] || ''; });
+  saveVendors(VENDORS);
+  closeSettings();
+  showToast('設定を保存しました');
+  renderTabs();
+  renderVendors();
+}
+</script>
+</body>
+</html>

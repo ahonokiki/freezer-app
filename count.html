@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>冷凍在庫表</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#f0f2f5; --card:#ffffff; --accent:#1a3a6b; --accent2:#2e5ca8;
+    --light-accent:#e8eef8; --text:#1a1a2e; --muted:#6b7a99; --border:#dde3ef;
+    --input-bg:#f7f9fc; --green:#1a7a4a; --green-bg:#e8f5ee; --red:#c0392b;
+    --warn:#d68000; --warn-bg:#fff3e0;
+    --prev:#aab4c8;
+    --shadow:0 2px 12px rgba(26,58,107,0.10); --radius:16px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  body{font-family:'Noto Sans JP','Hiragino Sans','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:0 0 40px;}
+  header{background:var(--accent);color:#fff;padding:20px 20px 16px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:10;box-shadow:0 2px 8px rgba(26,58,107,0.18);}
+  header h1{font-size:18px;font-weight:700;letter-spacing:0.04em;}
+  header .subtitle{font-size:10px;font-weight:500;color:rgba(255,255,255,0.75);line-height:1.4;letter-spacing:0.02em;margin-left:auto;text-align:right;}
+  .container{max-width:480px;margin:0 auto;padding:16px 12px 0;}
+  .last-check-info{font-size:12px;color:var(--muted);text-align:center;background:var(--light-accent);padding:8px 10px;border-radius:8px;margin-bottom:14px;font-weight:700;}
+  .meta-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px;margin-bottom:14px;display:flex;gap:10px;align-items:center;}
+  .meta-card label{font-size:11px;font-weight:700;color:var(--muted);}
+  .meta-card input,.meta-card select{flex:1;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;background:var(--input-bg);outline:none;}
+  .meta-card input:focus,.meta-card select:focus{border-color:var(--accent2);background:#fff;}
+  .group-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:14px;overflow:hidden;}
+  .group-header{background:var(--light-accent);padding:10px 14px;font-size:12px;font-weight:700;color:var(--accent);letter-spacing:0.04em;}
+  .item{padding:10px 12px;border-bottom:1px solid var(--border);}
+  .item:last-child{border-bottom:none;}
+  .item.focused{background:#f0f7ff;}
+  .item-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;gap:8px;}
+  .item-name{font-size:15px;font-weight:700;color:var(--text);}
+  .item-vendor{font-size:10px;color:var(--muted);}
+  .item-row{display:grid;grid-template-columns:1fr 1.6fr 1fr;gap:8px;align-items:center;}
+  .cell{text-align:center;}
+  .cell-label{font-size:9px;color:var(--muted);font-weight:700;margin-bottom:2px;letter-spacing:0.05em;}
+  .cell-value{font-size:13px;font-weight:600;line-height:1.2;}
+  .cell.prev .cell-value{color:#aab4c8;}
+  /* 数値の色分け（最小未満/最小/最大以上） */
+  .cell-value.v-low{color:var(--red) !important;font-weight:700;}
+  .cell-value.v-warn{color:#d68000 !important;font-weight:700;}
+  .cell-value.v-high{color:var(--green) !important;font-weight:700;}
+  .cell.input input.v-low{color:var(--red);}
+  .cell.input input.v-warn{color:#d68000;}
+  .cell.input input.v-high{color:var(--green);}
+  .cell.input{background:var(--input-bg);border:1.5px solid var(--border);border-radius:10px;padding:2px 2px 4px;}
+  .cell.input:focus-within{border-color:var(--accent2);background:#fff;}
+  .cell.input .cell-label{padding-top:2px;}
+  .cell.input input{width:100%;border:none;background:transparent;text-align:center;font-size:18px;font-weight:700;padding:2px 2px;outline:none;font-family:inherit;color:var(--text);-moz-appearance:textfield;}
+  .cell.input input::-webkit-outer-spin-button,
+  .cell.input input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+  .cell.input input::placeholder{color:#cdd5e2;font-weight:400;}
+  .cell.input .unit-mini{font-size:9px;color:var(--muted);font-weight:700;margin-top:-2px;}
+  .mm-row{display:flex;justify-content:space-between;align-items:baseline;padding:2px 6px;font-size:11px;line-height:1.3;}
+  .mm-k{color:var(--muted);font-weight:700;font-size:9px;letter-spacing:0.04em;}
+  .mm-v{font-weight:700;font-size:13px;color:var(--text);}
+  .mm-v.unset{color:#cdd5e2;font-weight:400;font-size:11px;}
+  .warn-low{color:var(--red) !important;}
+  /* 行背景: 最小未満=赤 / 最小=黄 / 最大以上=薄緑 */
+  .item.bg-low{background:#fde8e8 !important;}
+  .item.bg-low.focused{background:#fcd5d5 !important;}
+  .item.bg-warn{background:#fff8dc !important;}
+  .item.bg-warn.focused{background:#fff3b8 !important;}
+  .item.bg-high{background:#e8f5e9 !important;}
+  .item.bg-high.focused{background:#d4edda !important;}
+  /* 設定テーブル */
+  .settings-cards{margin:10px 0;padding-bottom:80px;}
+  .sgroup{margin-bottom:14px;}
+  .sgroup-head{font-size:12px;font-weight:700;color:var(--accent);background:var(--light-accent);padding:6px 10px;border-radius:6px;margin-bottom:6px;}
+  .scard{border:1px solid var(--border);border-radius:10px;padding:10px;margin-bottom:8px;background:#fafbfd;}
+  .scard-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
+  .scard-id{font-size:10px;color:var(--muted);font-weight:700;}
+  .scard-actions{display:flex;gap:4px;}
+  .scard-actions button{background:#fff;border:1px solid var(--border);color:var(--muted);font-size:12px;width:28px;height:28px;border-radius:6px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;padding:0;}
+  .scard-actions button:active{background:var(--light-accent);}
+  .scard-actions .del-btn{color:var(--red);}
+  .add-item-btn{width:100%;padding:10px;background:#fff;border:2px dashed var(--accent2);color:var(--accent2);border-radius:8px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;margin-top:4px;}
+  .add-item-btn:active{background:var(--light-accent);}
+  .scard-row{display:flex;gap:6px;align-items:center;margin-bottom:6px;}
+  .scard-row:last-child{margin-bottom:0;}
+  .scard-label{font-size:10px;font-weight:700;color:var(--muted);min-width:60px;}
+  .scard-row input, .scard-row select{flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px;font-family:inherit;background:#fff;outline:none;min-width:0;}
+  .scard-row input:focus, .scard-row select:focus{border-color:var(--accent2);}
+  .scard-row.split input{text-align:center;}
+  .scard-row.split .scard-label{min-width:auto;}
+  .scard-row.split{gap:4px;}
+  .scard-row.split .scard-cell{display:flex;align-items:center;gap:3px;flex:1;}
+  .scard-row.split .scard-cell label{font-size:10px;color:var(--muted);font-weight:700;}
+  .settings-section-title{font-size:12px;font-weight:700;color:var(--accent);margin:14px 0 4px;padding-bottom:4px;border-bottom:2px solid var(--accent2);}
+  /* 編集ロック状態 */
+  .settings-form.locked input,
+  .settings-form.locked select,
+  .settings-form.locked textarea{
+    background:#eee !important; color:#777 !important; pointer-events:none; cursor:not-allowed;
+  }
+  .unlock-btn{position:sticky;top:0;z-index:5;display:block;width:100%;padding:18px;background:var(--warn);color:#fff;border:none;border-radius:12px;font-size:18px;font-weight:700;font-family:inherit;margin-bottom:14px;cursor:pointer;letter-spacing:0.08em;box-shadow:0 4px 14px rgba(214,128,0,0.45);}
+  .unlock-btn:active{background:#b86d00;transform:scale(0.98);}
+  .settings-form:not(.locked) .unlock-btn{display:none;}
+  .settings-locked-msg, .settings-edit-msg{display:none;}
+  .settings-form.locked .settings-locked-msg{display:block;}
+  .settings-form:not(.locked) .settings-edit-msg{display:block;}
+  /* フローティング「次へ」ボタン（キーボード上に常時表示） */
+  #floating-next-btn{
+    position:fixed; right:14px; bottom:14px; z-index:200;
+    background:var(--accent); color:#fff; border:none; border-radius:32px;
+    padding:16px 26px; font-size:16px; font-weight:700; font-family:inherit;
+    box-shadow:0 4px 20px rgba(26,58,107,0.4);
+    cursor:pointer; display:none; letter-spacing:0.06em;
+    transition:background 0.18s, transform 0.1s;
+  }
+  #floating-next-btn:active{background:#122d58; transform:scale(0.95);}
+  #floating-next-btn.show{display:flex; align-items:center; gap:6px;}
+  #floating-next-btn.last{background:var(--green);}
+  #floating-next-btn.last:active{background:#0f5a37;}
+  #floating-next-btn .float-count{
+    background:rgba(255,255,255,0.25); padding:2px 8px; border-radius:12px;
+    font-size:11px; font-weight:700;
+  }
+  .memo-card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px;margin-bottom:14px;}
+  .memo-card label{display:block;font-size:11px;font-weight:700;color:var(--muted);margin-bottom:6px;letter-spacing:0.04em;}
+  .memo-card textarea{width:100%;min-height:60px;padding:10px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;font-family:inherit;background:var(--input-bg);outline:none;resize:vertical;}
+  .memo-card .memo-row{margin-bottom:10px;}
+  .memo-card .memo-row:last-child{margin-bottom:0;}
+  .choice-btns{display:flex;gap:6px;}
+  .choice-btn{flex:1;padding:10px 4px;border:1.5px solid var(--border);background:var(--input-bg);color:var(--muted);font-size:13px;font-weight:700;font-family:inherit;border-radius:8px;cursor:pointer;}
+  .choice-btn.selected{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .choice-btn:active{transform:scale(0.96);}
+  .send-btn{width:100%;padding:16px;background:var(--accent);color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:700;font-family:inherit;letter-spacing:0.06em;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;}
+  .send-btn:active{background:#122d58;transform:scale(0.98);}
+  .send-btn:disabled{background:var(--muted);cursor:not-allowed;}
+  .toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:var(--green);color:#fff;padding:14px 28px;border-radius:30px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,0.25);opacity:0;transition:opacity 0.3s;pointer-events:none;z-index:100;}
+  .toast.show{opacity:1;}
+  .toast.error{background:var(--red);}
+  .settings-btn{background:transparent;border:none;color:rgba(255,255,255,0.8);font-size:20px;cursor:pointer;padding:4px;}
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:50;display:none;align-items:center;justify-content:center;padding:20px;}
+  .modal-bg.show{display:flex;}
+  .modal{background:#fff;border-radius:var(--radius);padding:20px;max-width:400px;width:100%;max-height:85vh;overflow-y:auto;}
+  .modal h2{font-size:16px;margin-bottom:14px;color:var(--accent);}
+  .modal label{display:block;font-size:11px;font-weight:700;color:var(--muted);margin:10px 0 4px;}
+  .modal input{width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;font-family:inherit;background:var(--input-bg);outline:none;}
+  .modal-actions{display:flex;gap:8px;margin-top:16px;position:sticky;bottom:-20px;background:#fff;padding:12px 0;z-index:10;border-top:1px solid var(--border);}
+  .modal-actions button{flex:1;padding:14px;border-radius:8px;font-weight:700;font-family:inherit;cursor:pointer;border:none;font-size:15px;}
+  .modal-actions .save{background:var(--accent);color:#fff;}
+  .modal-actions .cancel{background:#eee;color:var(--text);}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>冷凍在庫表</h1>
+  <span class="subtitle">株式会社若林商店</span>
+  <button class="settings-btn" id="settings-btn" title="設定">⚙</button>
+</header>
+
+<div class="container">
+
+  <div class="last-check-info" id="last-check-info">前回在庫確認: ―</div>
+
+  <div id="groups-area"></div>
+
+  <div class="memo-card">
+    <div class="memo-row">
+      <label>冷凍庫内 混雑度</label>
+      <div class="choice-btns" data-choice="stock_level">
+        <button type="button" class="choice-btn" data-val="少">少</button>
+        <button type="button" class="choice-btn" data-val="標準">標準</button>
+        <button type="button" class="choice-btn" data-val="多">多</button>
+      </div>
+    </div>
+    <div class="memo-row">
+      <label>霜</label>
+      <div class="choice-btns" data-choice="frost_level">
+        <button type="button" class="choice-btn" data-val="少">少</button>
+        <button type="button" class="choice-btn" data-val="標準">標準</button>
+        <button type="button" class="choice-btn" data-val="多">多</button>
+      </div>
+    </div>
+    <div class="memo-row">
+      <label>その他メモ（任意）</label>
+      <textarea id="memo" placeholder="例: 〇〇に異常あり"></textarea>
+    </div>
+  </div>
+
+  <button class="send-btn" id="send-btn">📤 送信する</button>
+
+</div>
+
+<button id="floating-next-btn" type="button">
+  <span class="float-label">次へ ▶</span>
+  <span class="float-count" id="float-count">1 / 21</span>
+</button>
+
+<div class="toast" id="toast"></div>
+
+<!-- 設定モーダル -->
+<div class="modal-bg" id="modal-settings">
+  <div class="modal">
+    <h2>⚙ 設定</h2>
+
+    <div class="settings-form locked" id="settings-form">
+      <div class="settings-section-title">Webhook URL</div>
+      <input type="text" id="setting-webhook" placeholder="https://script.google.com/macros/s/.../exec">
+
+      <div class="settings-section-title">品目別 設定</div>
+      <p style="font-size:10px;color:var(--muted);margin-bottom:6px;line-height:1.4;">
+        品名・単位は表示用。発注商品名は SMS本文に使う名前（空欄なら品名）。<br>
+        最小未満→赤背景／最大以上→緑背景。
+      </p>
+      <p class="settings-locked-msg" style="font-size:11px;color:var(--muted);margin:8px 0;line-height:1.4;text-align:center;">
+        🔒 閲覧モード（下の橙ボタンで編集開始）
+      </p>
+      <p class="settings-edit-msg" style="font-size:11px;color:var(--green);margin:8px 0;line-height:1.4;text-align:center;font-weight:700;">
+        ✏️ 編集モード（下の「保存」ボタンで反映）
+      </p>
+      <button type="button" class="unlock-btn" id="unlock-btn">編集</button>
+      <div class="settings-cards" id="settings-cards"></div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="cancel" onclick="closeSettings()">閉じる</button>
+      <button class="save" onclick="saveSettings()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* === config.js を埋め込み（単一ファイル化のため） === */
+const WEBHOOK_URL = '';
+const DEFAULT_VENDORS = [
+  { key: 'chiba',   name: '千葉フード',       phone: '' },
+  { key: 'nakayama',name: '中山',             phone: '' },
+  { key: 'unotore', name: 'ウノトレ',         phone: '' },
+  { key: 'akutsu',  name: '阿久津ブロイラー', phone: '' },
+  { key: 'mitsuba', name: 'ミツバミート',     phone: '' },
+  { key: '',        name: '（空欄）',         phone: '' },
+];
+const DEFAULT_ITEMS = [
+  { id: 1,  group: 'A', name: '手羽先',      unit: 'ケース', vendor: 'chiba' },
+  { id: 2,  group: 'A', name: 'ぼんじり',    unit: 'ケース', vendor: 'chiba' },
+  { id: 3,  group: 'A', name: '鶏胸',        unit: 'ケース', vendor: 'chiba' },
+  { id: 4,  group: 'A', name: 'レバー',      unit: 'ケース', vendor: 'chiba' },
+  { id: 5,  group: 'A', name: 'ガツ',        unit: 'ケース', vendor: 'nakayama' },
+  { id: 6,  group: 'A', name: '豚ひき 18kg', unit: 'ケース', vendor: 'unotore' },
+  { id: 7,  group: 'A', name: '鶏ひき 24kg', unit: 'ケース', vendor: '' },
+  { id: 8,  group: 'A', name: '豚こま 24kg', unit: 'ケース', vendor: 'unotore' },
+  { id: 9,  group: 'B', name: '鶏骨 10kg',   unit: '箱', vendor: 'chiba' },
+  { id:10,  group: 'B', name: 'モミジ 5kg',  unit: '袋', vendor: 'akutsu' },
+  { id:11,  group: 'B', name: 'モミジ 3kg',  unit: '袋', vendor: 'akutsu' },
+  { id:12,  group: 'B', name: '鶏骨 3kg',    unit: '袋', vendor: 'akutsu' },
+  { id:13,  group: 'B', name: 'ゲンコツ 5kg',unit: '袋', vendor: 'nakayama' },
+  { id:14,  group: 'B', name: '背骨 10kg',     unit: '袋', vendor: 'nakayama' },
+  { id:15,  group: 'B', name: 'ゲンコツ 10kg', unit: '袋', vendor: 'nakayama' },
+  { id:16,  group: 'B', name: '脂 10kg',       unit: '袋', vendor: 'nakayama' },
+  { id:17,  group: 'B', name: '脂 2kg',        unit: '袋', vendor: '' },
+  { id:18,  group: 'X', name: '東煌バラ',       unit: '袋', vendor: 'unotore' },
+  { id:19,  group: 'X', name: 'スジナシヒレ',   unit: '箱', vendor: 'unotore' },
+  { id:20,  group: 'X', name: '国産鶏もも',     unit: '箱', vendor: 'unotore' },
+  { id:21,  group: 'X', name: '国産鶏胸',       unit: '箱', vendor: 'unotore' },
+  { id:22,  group: 'X', name: '豚ひき用小肉',   unit: '袋', vendor: '' },
+  { id:23,  group: 'X', name: '鶏ひき用小肉',   unit: '袋', vendor: '' },
+];
+const GROUP_LABELS = {
+  A: 'グループA 厳密管理（ケース）',
+  B: 'グループB 中間管理（袋・箱）',
+  X: '未分類',
+};
+function loadItems(){
+  const s=localStorage.getItem('freezer_items');
+  if(s){
+    try{
+      const items = JSON.parse(s);
+      const map = {'unotore_ude':'unotore', 'unotore_sheet':'unotore', 'unknown':''};
+      let migrated = false;
+      items.forEach(it => {
+        if (map[it.vendor] !== undefined) { it.vendor = map[it.vendor]; migrated = true; }
+        // グループC → B、単位 % → 袋
+        if (it.group === 'C') { it.group = 'B'; migrated = true; }
+        if (it.unit === '%')  { it.unit = '袋'; migrated = true; }
+      });
+      // 新DEFAULT_ITEMS追加は1回だけ（削除した品を復活させないため）
+      const MIGRATION_VERSION = 'v3-stable-add';
+      if (localStorage.getItem('freezer_items_migration') !== MIGRATION_VERSION) {
+        const existingIds = new Set(items.map(it => it.id));
+        DEFAULT_ITEMS.forEach(def => {
+          if (!existingIds.has(def.id)) { items.push(def); migrated = true; }
+        });
+        localStorage.setItem('freezer_items_migration', MIGRATION_VERSION);
+      }
+      if (migrated) localStorage.setItem('freezer_items', JSON.stringify(items));
+      return items;
+    }catch(e){}
+  }
+  localStorage.setItem('freezer_items_migration', 'v3-stable-add');
+  return DEFAULT_ITEMS;
+}
+function saveItems(i){ localStorage.setItem('freezer_items', JSON.stringify(i)); }
+function loadVendors(){
+  const s=localStorage.getItem('freezer_vendors');
+  if(s){
+    try{
+      const v = JSON.parse(s);
+      // 旧7件構成だったら新5件構成に置き換え
+      if (v.length !== DEFAULT_VENDORS.length) {
+        localStorage.setItem('freezer_vendors', JSON.stringify(DEFAULT_VENDORS));
+        return DEFAULT_VENDORS;
+      }
+      return v;
+    }catch(e){}
+  }
+  return DEFAULT_VENDORS;
+}
+function saveVendors(v){ localStorage.setItem('freezer_vendors', JSON.stringify(v)); }
+function loadWebhookUrl(){ return localStorage.getItem('freezer_webhook') || WEBHOOK_URL; }
+function saveWebhookUrl(u){ localStorage.setItem('freezer_webhook', u); }
+function loadItemSettings(){
+  // 新キー: {id: {min, max, order}}
+  const s = localStorage.getItem('freezer_item_settings');
+  if (s) { try { return JSON.parse(s); } catch(e){} }
+  // 旧キー freezer_min_stock からの移行
+  const old = localStorage.getItem('freezer_min_stock');
+  if (old) {
+    try {
+      const oldData = JSON.parse(old);
+      const migrated = {};
+      Object.keys(oldData).forEach(id => { migrated[id] = { min: oldData[id] }; });
+      localStorage.setItem('freezer_item_settings', JSON.stringify(migrated));
+      return migrated;
+    } catch(e){}
+  }
+  return {};
+}
+function saveItemSettings(s){ localStorage.setItem('freezer_item_settings', JSON.stringify(s)); }
+</script>
+<script>
+const ITEMS = loadItems();
+const VENDORS = loadVendors();
+const vendorMap = Object.fromEntries(VENDORS.map(v => [v.key, v]));
+
+// 日付は送信時にサーバー側で自動付与（new Date()）
+
+// サーバーから前回送信データを取得して「先週」欄を更新
+async function fetchPrevFromServer() {
+  const url = loadWebhookUrl();
+  if (!url) return;
+  try {
+    const r = await fetch(url + '?action=latest');
+    const data = await r.json();
+    if (data && data.counts) {
+      localStorage.setItem('freezer_last_counts', JSON.stringify(data.counts));
+      localStorage.setItem('freezer_last_date', data.date || '');
+      if (data.ts) localStorage.setItem('freezer_last_ts', String(data.ts));
+      updateLastCheckInfo();
+      renderGroups();
+      attachNavHandlers();
+    }
+  } catch(e) {
+    console.warn('前週データ取得失敗:', e);
+    // 失敗時は localStorage の値で表示続行（既にレンダリング済み）
+  }
+}
+
+// グループ毎にレンダリング
+function renderGroups() {
+  const area = document.getElementById('groups-area');
+  area.innerHTML = '';
+  const groups = {};
+  ITEMS.forEach(it => { (groups[it.group] = groups[it.group] || []).push(it); });
+  const prevValues = JSON.parse(localStorage.getItem('freezer_last_counts') || '{}');
+  const lastMMDD = getLastCheckMMDD();
+
+  ['A','B','X'].forEach(g => {
+    if (!groups[g]) return;
+    const card = document.createElement('div');
+    card.className = 'group-card';
+    const head = document.createElement('div');
+    head.className = 'group-header';
+    head.textContent = GROUP_LABELS[g] || g;
+    card.appendChild(head);
+    const settings = loadItemSettings();
+    groups[g].forEach(it => {
+      const v = vendorMap[it.vendor]?.name || '';
+      const prev = prevValues[it.id];
+      const prevStr = (prev !== undefined && prev !== null && prev !== '') ? `${prev}` : '―';
+      const setting = settings[it.id] || {};
+      const hasMin = (setting.min !== undefined && setting.min !== null && setting.min !== '');
+      const hasMax = (setting.max !== undefined && setting.max !== null && setting.max !== '');
+      const minStr = hasMin ? setting.min : '―';
+      const maxStr = hasMax ? setting.max : '―';
+      const minClass = hasMin ? '' : 'unset';
+      const maxClass = hasMax ? '' : 'unset';
+      const row = document.createElement('div');
+      row.className = 'item';
+      row.innerHTML = `
+        <div class="item-head">
+          <span class="item-name">${it.name}</span>
+          <span class="item-vendor">${v}</span>
+        </div>
+        <div class="item-row">
+          <div class="cell prev">
+            <div class="cell-label">${lastMMDD || '前回'}</div>
+            <div class="cell-value ${valueColorClass(prev, setting)}">${prevStr}</div>
+          </div>
+          <div class="cell input">
+            <div class="cell-label">今週</div>
+            <input type="number" inputmode="decimal" step="0.1" min="0" data-id="${it.id}" placeholder="${(prev !== undefined && prev !== null && prev !== '') ? prev : '―'}">
+            <div class="unit-mini">${it.unit}</div>
+          </div>
+          <div class="cell">
+            <div class="mm-row"><span class="mm-k">最小</span><span class="mm-v ${minClass}">${minStr}</span></div>
+            <div class="mm-row"><span class="mm-k">最大</span><span class="mm-v ${maxClass}">${maxStr}</span></div>
+          </div>
+        </div>
+      `;
+      card.appendChild(row);
+    });
+    area.appendChild(card);
+  });
+}
+renderGroups();
+attachNavHandlers();
+updateLastCheckInfo();
+fetchPrevFromServer();   // サーバーから最新の先週値を取得して上書き
+
+function updateLastCheckInfo(){
+  const el = document.getElementById('last-check-info');
+  if (!el) return;
+  const tsStr = localStorage.getItem('freezer_last_ts');
+  const date = localStorage.getItem('freezer_last_date');
+  let label = '前回在庫確認: ―';
+  if (tsStr) {
+    const t = new Date(tsStr);
+    if (!isNaN(t)) {
+      const wd = ['日','月','火','水','木','金','土'][t.getDay()];
+      const y=t.getFullYear(), m=String(t.getMonth()+1).padStart(2,'0'), d=String(t.getDate()).padStart(2,'0');
+      const hh=String(t.getHours()).padStart(2,'0'), mm=String(t.getMinutes()).padStart(2,'0');
+      label = `前回在庫確認: ${y}/${m}/${d}(${wd}) ${hh}:${mm}`;
+    }
+  } else if (date) {
+    label = `前回在庫確認: ${date}`;
+  }
+  el.textContent = label;
+}
+
+// 前回確認日を mm/dd 形式で取得
+function getLastCheckMMDD(){
+  const tsStr = localStorage.getItem('freezer_last_ts');
+  if (tsStr) {
+    const t = new Date(tsStr);
+    if (!isNaN(t)) return `${String(t.getMonth()+1).padStart(2,'0')}/${String(t.getDate()).padStart(2,'0')}`;
+  }
+  const date = localStorage.getItem('freezer_last_date');
+  if (date) {
+    const t = new Date(date);
+    if (!isNaN(t)) return `${String(t.getMonth()+1).padStart(2,'0')}/${String(t.getDate()).padStart(2,'0')}`;
+  }
+  return '';
+}
+
+// 値→色クラス判定
+function valueColorClass(value, settings){
+  if (value === null || value === undefined || value === '' || isNaN(parseFloat(value))) return '';
+  const v = parseFloat(value);
+  const minSet = settings.min !== undefined && settings.min !== null && settings.min !== '';
+  const maxSet = settings.max !== undefined && settings.max !== null && settings.max !== '';
+  if (minSet && v < parseFloat(settings.min)) return 'v-low';
+  if (minSet && v === parseFloat(settings.min)) return 'v-warn';
+  if (maxSet && v >= parseFloat(settings.max)) return 'v-high';
+  return '';
+}
+
+// 選択ボタン（在庫量・霜）の動作: 1つだけ選択、再タップで解除
+document.querySelectorAll('.choice-btns').forEach(group => {
+  group.addEventListener('click', e => {
+    const btn = e.target.closest('.choice-btn');
+    if (!btn) return;
+    const wasSelected = btn.classList.contains('selected');
+    group.querySelectorAll('.choice-btn').forEach(b => b.classList.remove('selected'));
+    if (!wasSelected) btn.classList.add('selected');
+  });
+});
+
+function attachNavHandlers() {
+  const inputs = Array.from(document.querySelectorAll('input[data-id]'));
+
+  // フォーカス中の行をハイライト + Enterキー対応 + 最小在庫下回り警告
+  inputs.forEach(inp => {
+    inp.addEventListener('focus', () => {
+      document.querySelectorAll('.item.focused').forEach(el => el.classList.remove('focused'));
+      inp.closest('.item').classList.add('focused');
+      showFloatBtn(inp);
+    });
+    inp.addEventListener('blur', () => {
+      inp.closest('.item').classList.remove('focused');
+      hideFloatBtn();
+    });
+    inp.addEventListener('input', () => checkLowStock(inp));
+    // Enterキー（PCキーボード用）も次へ
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const idx = inputs.indexOf(inp);
+        const next = inputs[idx + 1];
+        if (next) { next.focus(); next.scrollIntoView({behavior:'smooth', block:'center'}); }
+        else document.getElementById('send-btn').click();
+      }
+    });
+    checkLowStock(inp);
+  });
+
+}
+
+/* === フローティング「次へ」ボタン === */
+const floatBtn = document.getElementById('floating-next-btn');
+const floatCount = document.getElementById('float-count');
+const floatLabel = floatBtn.querySelector('.float-label');
+let lastFocusedInput = null;
+
+function updateFloatBtn(inp) {
+  const inputs = Array.from(document.querySelectorAll('input[data-id]'));
+  const idx = inputs.indexOf(inp);
+  const total = inputs.length;
+  floatLabel.textContent = '次へ ▶';
+  floatCount.textContent = `${idx + 1} / ${total}`;
+  floatBtn.classList.remove('last');
+}
+
+function showFloatBtn(inp) {
+  lastFocusedInput = inp;
+  updateFloatBtn(inp);
+  floatBtn.classList.add('show');
+}
+
+function hideFloatBtn() {
+  // blur後、別のinput[data-id]にフォーカス移動した場合は隠さない
+  setTimeout(() => {
+    const ae = document.activeElement;
+    if (!ae || !ae.matches('input[data-id]')) {
+      floatBtn.classList.remove('show');
+      lastFocusedInput = null;
+    }
+  }, 150);
+}
+
+function goNext() {
+  const inputs = Array.from(document.querySelectorAll('input[data-id]'));
+  // activeElement優先、無ければ lastFocusedInput
+  let inp = (document.activeElement && document.activeElement.matches('input[data-id]'))
+    ? document.activeElement
+    : lastFocusedInput;
+  if (!inp) return;
+  const idx = inputs.indexOf(inp);
+  if (idx < 0) return;
+  if (idx === inputs.length - 1) {
+    // 最後の品なら最後にとどまる（送信は下のボタンから）
+    return;
+  }
+  const next = inputs[idx + 1];
+  if (next) {
+    next.focus();
+    next.scrollIntoView({behavior:'smooth', block:'center'});
+    lastFocusedInput = next;
+    updateFloatBtn(next);
+  }
+}
+
+// pointerdown は touch も mouse も発火、かつ preventDefault でblur回避＋clickも発火する
+floatBtn.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  goNext();
+});
+
+// iOS キーボードに合わせて位置調整
+if (window.visualViewport) {
+  const updatePos = () => {
+    const vv = window.visualViewport;
+    const offsetFromBottom = window.innerHeight - (vv.offsetTop + vv.height);
+    floatBtn.style.bottom = (offsetFromBottom + 14) + 'px';
+  };
+  visualViewport.addEventListener('resize', updatePos);
+  visualViewport.addEventListener('scroll', updatePos);
+  updatePos();
+}
+
+function checkLowStock(inp) {
+  const id = inp.dataset.id;
+  const settings = loadItemSettings();
+  const s = settings[id] || {};
+  const row = inp.closest('.item');
+  // 行背景＋入力テキスト色をリセット
+  row.classList.remove('bg-low','bg-warn','bg-high');
+  inp.classList.remove('warn-low','v-low','v-warn','v-high');
+  // 値クラスを判定して適用
+  const cls = valueColorClass(inp.value, s);
+  if (cls) inp.classList.add(cls);
+  // 行背景
+  if (cls === 'v-low') row.classList.add('bg-low');
+  else if (cls === 'v-warn') row.classList.add('bg-warn');
+  else if (cls === 'v-high') row.classList.add('bg-high');
+}
+
+// 送信
+document.getElementById('send-btn').addEventListener('click', async () => {
+  const url = loadWebhookUrl();
+  if (!url) {
+    showToast('設定からWebhook URLを入力してください', true);
+    return;
+  }
+  const reporter = '';  // 記入者は廃止
+  const date = new Date().toISOString().slice(0,10);  // 送信時の日付を自動付与
+  const memo = document.getElementById('memo').value;
+  const stock_level = document.querySelector('[data-choice="stock_level"] .choice-btn.selected')?.dataset.val || '';
+  const frost_level = document.querySelector('[data-choice="frost_level"] .choice-btn.selected')?.dataset.val || '';
+  const counts = {};
+  // 空欄は前回値を継承（前回確認結果を保持するため）
+  const prevSnapshot = JSON.parse(localStorage.getItem('freezer_last_counts') || '{}');
+  let inheritedCount = 0;
+  document.querySelectorAll('input[data-id]').forEach(inp => {
+    const v = inp.value.trim();
+    if (v === '') {
+      const prev = prevSnapshot[inp.dataset.id];
+      if (prev !== undefined && prev !== null && prev !== '') {
+        counts[inp.dataset.id] = prev;
+        inheritedCount++;
+      } else {
+        counts[inp.dataset.id] = null;
+      }
+    } else {
+      counts[inp.dataset.id] = parseFloat(v);
+    }
+  });
+
+  const payload = { type: 'count', date, reporter, counts, memo, stock_level, frost_level, ts: Date.now() };
+  const btn = document.getElementById('send-btn');
+  btn.disabled = true;
+  btn.textContent = '送信中…';
+  try {
+    // GAS Webhook: no-cors で POST（GAS側で受け取れる）
+    await fetch(url, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: {'Content-Type':'text/plain'},
+      body: JSON.stringify(payload),
+    });
+    // 前回値として保存（次回表示用）
+    localStorage.setItem('freezer_last_counts', JSON.stringify(counts));
+    localStorage.setItem('freezer_last_date', date);
+    localStorage.setItem('freezer_last_ts', String(payload.ts));
+    showToast(inheritedCount > 0 ? `✅ 送信しました（${inheritedCount}件は前回値を継承）` : '✅ 送信しました');
+    // フォームクリア
+    document.querySelectorAll('input[data-id]').forEach(i => i.value = '');
+    document.getElementById('memo').value = '';
+    document.querySelectorAll('.choice-btn.selected').forEach(b => b.classList.remove('selected'));
+    updateLastCheckInfo();
+    renderGroups();
+    attachNavHandlers();
+  } catch (e) {
+    showToast('送信失敗: ' + e.message, true);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '📤 送信する';
+  }
+});
+
+function showToast(msg, isError=false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.toggle('error', isError);
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// 設定モーダル
+document.getElementById('settings-btn').addEventListener('click', openSettings);
+document.getElementById('unlock-btn').addEventListener('click', () => {
+  if (confirm('設定を変更しますか？\n（保存ボタンを押すまでは反映されません）')) {
+    document.getElementById('settings-form').classList.remove('locked');
+  }
+});
+function escHtml(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');}
+function openSettings(){
+  document.getElementById('settings-form').classList.add('locked');
+  document.getElementById('setting-webhook').value = loadWebhookUrl();
+  renderSettingsCards();
+  document.getElementById('modal-settings').classList.add('show');
+}
+
+function renderSettingsCards(){
+  const settings = loadItemSettings();
+  const cards = document.getElementById('settings-cards');
+  cards.innerHTML = '';
+  const vendorOpts = VENDORS.map(v => `<option value="${v.key}">${v.name}</option>`).join('');
+  const groupOpts = ['A','B','X'].map(g => `<option value="${g}">${GROUP_LABELS[g]}</option>`).join('');
+
+  ['A','B','X'].forEach(g => {
+    const groupDiv = document.createElement('div');
+    groupDiv.className = 'sgroup';
+    groupDiv.innerHTML = `<div class="sgroup-head">${GROUP_LABELS[g]||g}</div>`;
+    // この group の items を ITEMS 配列順に並べる
+    ITEMS.forEach((it, idx) => {
+      if (it.group !== g) return;
+      const s = settings[it.id] || {};
+      const card = document.createElement('div');
+      card.className = 'scard';
+      card.dataset.itemId = it.id;
+      card.innerHTML = `
+        <div class="scard-head">
+          <span class="scard-id">No.${it.id}</span>
+          <div class="scard-actions">
+            <button type="button" class="move-up" data-id="${it.id}" title="上へ">▲</button>
+            <button type="button" class="move-down" data-id="${it.id}" title="下へ">▼</button>
+            <button type="button" class="del-btn" data-id="${it.id}" title="削除">🗑</button>
+          </div>
+        </div>
+        <div class="scard-row"><span class="scard-label">品名</span>
+          <input type="text" data-item-id="${it.id}" data-item-key="name" value="${escHtml(it.name)}">
+        </div>
+        <div class="scard-row"><span class="scard-label">単位</span>
+          <input type="text" data-item-id="${it.id}" data-item-key="unit" value="${escHtml(it.unit)}" placeholder="ケース / 袋 等">
+        </div>
+        <div class="scard-row"><span class="scard-label">発注商品名</span>
+          <input type="text" data-item-id="${it.id}" data-item-key="order_name" value="${escHtml(it.order_name || it.name)}" placeholder="SMS本文に使う名前">
+        </div>
+        <div class="scard-row"><span class="scard-label">グループ</span>
+          <select data-group-id="${it.id}">${groupOpts}</select>
+        </div>
+        <div class="scard-row"><span class="scard-label">業者</span>
+          <select data-vendor-id="${it.id}">${vendorOpts}</select>
+        </div>
+        <div class="scard-row split">
+          <div class="scard-cell"><label>最小</label><input type="number" inputmode="decimal" step="0.1" data-set-id="${it.id}" data-set-key="min" value="${s.min ?? ''}" placeholder="―"></div>
+          <div class="scard-cell"><label>最大</label><input type="number" inputmode="decimal" step="0.1" data-set-id="${it.id}" data-set-key="max" value="${s.max ?? ''}" placeholder="―"></div>
+          <div class="scard-cell"><label>発注数</label><input type="number" inputmode="decimal" step="0.1" data-set-id="${it.id}" data-set-key="order" value="${s.order ?? ''}" placeholder="―"></div>
+        </div>
+      `;
+      groupDiv.appendChild(card);
+      card.querySelector(`[data-vendor-id="${it.id}"]`).value = it.vendor || '';
+      card.querySelector(`[data-group-id="${it.id}"]`).value = it.group || 'X';
+    });
+    // 各グループ末尾に「新規追加」ボタン
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'add-item-btn';
+    addBtn.textContent = `＋ ${GROUP_LABELS[g]||g} に新規追加`;
+    addBtn.dataset.group = g;
+    addBtn.addEventListener('click', () => addNewItem(g));
+    groupDiv.appendChild(addBtn);
+    cards.appendChild(groupDiv);
+  });
+
+  attachCardActionHandlers();
+}
+
+function attachCardActionHandlers(){
+  document.querySelectorAll('.move-up').forEach(btn => {
+    btn.onclick = () => moveItem(parseInt(btn.dataset.id,10), -1);
+  });
+  document.querySelectorAll('.move-down').forEach(btn => {
+    btn.onclick = () => moveItem(parseInt(btn.dataset.id,10), +1);
+  });
+  document.querySelectorAll('.del-btn').forEach(btn => {
+    btn.onclick = () => deleteItem(parseInt(btn.dataset.id,10));
+  });
+}
+
+function moveItem(id, dir){
+  // ロックチェック
+  if (document.getElementById('settings-form').classList.contains('locked')) return;
+  // 編集中の値を ITEMS に反映してから配列順を変更
+  syncFormValuesToItems();
+  const idx = ITEMS.findIndex(it => it.id === id);
+  const newIdx = idx + dir;
+  if (idx < 0 || newIdx < 0 || newIdx >= ITEMS.length) return;
+  [ITEMS[idx], ITEMS[newIdx]] = [ITEMS[newIdx], ITEMS[idx]];
+  renderSettingsCards();
+}
+
+function deleteItem(id){
+  if (document.getElementById('settings-form').classList.contains('locked')) return;
+  const it = ITEMS.find(x => x.id === id);
+  if (!it) return;
+  if (!confirm(`「${it.name}」を削除しますか？\n（過去の在庫履歴データは残ります）`)) return;
+  syncFormValuesToItems();
+  const idx = ITEMS.findIndex(x => x.id === id);
+  if (idx >= 0) ITEMS.splice(idx, 1);
+  renderSettingsCards();
+}
+
+function addNewItem(group){
+  if (document.getElementById('settings-form').classList.contains('locked')) return;
+  syncFormValuesToItems();
+  const maxId = ITEMS.reduce((m, it) => Math.max(m, it.id), 0);
+  const newItem = { id: maxId + 1, group: group, name: '', unit: '袋', vendor: '', order_name: '' };
+  // 同グループの末尾に挿入
+  let lastIdxInGroup = -1;
+  ITEMS.forEach((it, i) => { if (it.group === group) lastIdxInGroup = i; });
+  if (lastIdxInGroup >= 0) ITEMS.splice(lastIdxInGroup + 1, 0, newItem);
+  else ITEMS.push(newItem);
+  renderSettingsCards();
+}
+
+// 編集中の入力値を ITEMS / 一時保持に反映（並び替え時にデータ消失を防ぐ）
+function syncFormValuesToItems(){
+  document.querySelectorAll('[data-item-id]').forEach(inp => {
+    const id = parseInt(inp.dataset.itemId, 10);
+    const it = ITEMS.find(x => x.id === id);
+    if (it) it[inp.dataset.itemKey] = inp.value;
+  });
+  document.querySelectorAll('[data-vendor-id]').forEach(sel => {
+    const id = parseInt(sel.dataset.vendorId, 10);
+    const it = ITEMS.find(x => x.id === id);
+    if (it) it.vendor = sel.value;
+  });
+  document.querySelectorAll('[data-group-id]').forEach(sel => {
+    const id = parseInt(sel.dataset.groupId, 10);
+    const it = ITEMS.find(x => x.id === id);
+    if (it) it.group = sel.value;
+  });
+}
+function closeSettings(){ document.getElementById('modal-settings').classList.remove('show'); }
+function saveSettings(){
+  if (document.getElementById('settings-form').classList.contains('locked')) {
+    showToast('「✏️ 設定を変更する」を押してから保存してください', true);
+    return;
+  }
+  // 新基準値
+  const newSettings = {};
+  document.querySelectorAll('[data-set-id]').forEach(inp => {
+    const id = inp.dataset.setId;
+    const key = inp.dataset.setKey;
+    if (!newSettings[id]) newSettings[id] = {};
+    const v = inp.value.trim();
+    if (v !== '') {
+      const n = parseFloat(v);
+      if (!isNaN(n)) newSettings[id][key] = n;
+    }
+  });
+  Object.keys(newSettings).forEach(id => { if (Object.keys(newSettings[id]).length === 0) delete newSettings[id]; });
+  // 入力値を ITEMS に反映（並び順は ITEMS のまま）
+  syncFormValuesToItems();
+
+  // ITEMSのスナップショット保存前の比較用（旧版は元のlocalStorageから）
+  const oldItemsRaw = localStorage.getItem('freezer_items');
+  let oldItems = [];
+  try { oldItems = oldItemsRaw ? JSON.parse(oldItemsRaw) : DEFAULT_ITEMS.slice(); } catch(e){ oldItems = DEFAULT_ITEMS.slice(); }
+  const oldItemsMap = Object.fromEntries(oldItems.map(it => [it.id, it]));
+  const oldSettings = loadItemSettings();
+  const vendorNameMap = Object.fromEntries(VENDORS.map(v => [v.key, v.name]));
+  const groupLabelMap = Object.fromEntries(Object.entries(GROUP_LABELS));
+  const labels = {min:'最小', max:'最大', order:'発注数'};
+  const fieldLabels = {name:'品名', unit:'単位', order_name:'発注商品名'};
+
+  const diffs = [];
+  // 削除検出
+  oldItems.forEach(oit => {
+    if (!ITEMS.find(x => x.id === oit.id)) diffs.push(`🗑 削除: ${oit.name}`);
+  });
+  // 追加・変更検出
+  ITEMS.forEach(it => {
+    const oit = oldItemsMap[it.id];
+    if (!oit) { diffs.push(`✨ 新規追加: ${it.name||'(無名)'} [${groupLabelMap[it.group]||it.group}]`); return; }
+    ['name','unit','order_name'].forEach(k => {
+      if ((oit[k]||'') !== (it[k]||'')) diffs.push(`${oit.name||'?'}: ${fieldLabels[k]} [${oit[k]||'―'}] → [${it[k]||'―'}]`);
+    });
+    if (oit.vendor !== it.vendor) diffs.push(`${oit.name||it.name}: 業者 [${vendorNameMap[oit.vendor]||'空欄'}] → [${vendorNameMap[it.vendor]||'空欄'}]`);
+    if (oit.group !== it.group) diffs.push(`${oit.name||it.name}: グループ [${groupLabelMap[oit.group]||oit.group}] → [${groupLabelMap[it.group]||it.group}]`);
+    const oldS = oldSettings[it.id] || {};
+    const newS = newSettings[it.id] || {};
+    ['min','max','order'].forEach(k => {
+      if (oldS[k] !== newS[k]) diffs.push(`${it.name}: ${labels[k]} [${oldS[k] ?? '―'}] → [${newS[k] ?? '―'}]`);
+    });
+  });
+  // 順番変更検出
+  const oldOrder = oldItems.map(x => x.id).join(',');
+  const newOrder = ITEMS.map(x => x.id).join(',');
+  if (oldOrder !== newOrder) {
+    // 個別の入れ替えはノイズが多いので、まとめて記載
+    diffs.push(`↕ 並び順を変更しました`);
+  }
+  // Webhook URL
+  const newUrl = document.getElementById('setting-webhook').value.trim();
+  if (newUrl !== loadWebhookUrl()) diffs.push(`Webhook URL: 変更あり`);
+
+  if (diffs.length === 0) {
+    showToast('変更はありませんでした');
+    closeSettings();
+    return;
+  }
+  const msg = `本当に以下の設定を変更しますか？\n\n${diffs.join('\n')}\n\nOK で保存します。`;
+  if (!confirm(msg)) return;
+
+  // 保存
+  saveWebhookUrl(newUrl);
+  saveItemSettings(newSettings);
+  saveItems(ITEMS);
+  closeSettings();
+  showToast('設定を保存しました');
+  renderGroups();
+  attachNavHandlers();
+}
+</script>
+</body>
+</html>
