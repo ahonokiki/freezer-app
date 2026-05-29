@@ -545,7 +545,10 @@ function checkLowStock(inp) {
   const s = settings[id] || {};
   const row = inp.closest('.item');
   row.classList.remove('bg-low','bg-high');
-  const v = parseFloat(inp.value);
+  // 今週入力があればそれ、空なら前回値(placeholder)で判定
+  let raw = inp.value.trim();
+  if (raw === '') raw = (inp.placeholder || '');
+  const v = parseFloat(raw);
   if (isNaN(v)) return;
   const minSet = s.min !== undefined && s.min !== null && s.min !== '';
   const maxSet = s.max !== undefined && s.max !== null && s.max !== '';
