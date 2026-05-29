@@ -778,7 +778,7 @@ function renderSettingsCards(){
           <input type="text" data-item-id="${it.id}" data-item-key="order_name" value="${escHtml(it.order_name || it.name)}" placeholder="SMS本文に使う名前">
         </div>
         <div class="scard-row">
-          <label class="scard-check"><input type="checkbox" data-item-id="${it.id}" data-item-key="no_order_unit" ${it.no_order_unit ? 'checked' : ''}> 発注SMSで単位を省略（「6箱」等が名前に含まれる時）</label>
+          <label class="scard-check"><input type="checkbox" data-item-id="${it.id}" data-item-key="no_order_unit" ${it.no_order_unit ? 'checked' : ''}> 発注SMSは発注商品名のみ（数量・単位なし）</label>
         </div>
         <div class="scard-row"><span class="scard-label">グループ</span>
           <select data-group-id="${it.id}">${groupOpts}</select>

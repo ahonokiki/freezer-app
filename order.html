@@ -477,8 +477,12 @@ function buildSmsText(vendorKey) {
     const qty = st && st.qty ? parseFloat(st.qty) : 0;
     if (qty > 0) {
       const displayName = (it.order_name && it.order_name.trim()) ? it.order_name : it.name;
-      const unit = it.no_order_unit ? '' : it.unit;
-      parts.push(`${displayName}${st.qty}${unit}`);
+      if (it.no_order_unit) {
+        // 発注商品名のみ（数量・単位を省略）
+        parts.push(`${displayName}`);
+      } else {
+        parts.push(`${displayName}${st.qty}${it.unit}`);
+      }
     }
   });
   if (!parts.length) return '';
