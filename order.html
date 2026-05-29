@@ -486,7 +486,8 @@ function buildSmsText(vendorKey) {
     }
   });
   if (!parts.length) return '';
-  return `${v.name}\n${parts.join('\n')}\nお願いします`;
+  const vendorLabel = v.key === '' ? v.name : `${v.name}様`;
+  return `${vendorLabel}\n${parts.join('\n')}\nお願いします`;
 }
 
 function updatePreview(vendorKey) {
