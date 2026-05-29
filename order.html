@@ -21,6 +21,8 @@
   header h1{font-size:18px;font-weight:700;letter-spacing:0.04em;}
   header .subtitle{font-size:10px;font-weight:500;color:rgba(255,255,255,0.75);line-height:1.4;text-align:right;margin-left:auto;}
   .settings-btn{background:transparent;border:none;color:rgba(255,255,255,0.8);font-size:20px;cursor:pointer;padding:4px;}
+  .nav-link{display:flex;align-items:center;gap:4px;background:rgba(255,255,255,0.18);color:#fff;text-decoration:none;font-size:12px;font-weight:700;padding:6px 12px;border-radius:20px;white-space:nowrap;}
+  .nav-link:active{background:rgba(255,255,255,0.32);}
   .container{max-width:480px;margin:0 auto;padding:16px 12px 0;}
   .info-bar{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px 14px;margin-bottom:14px;font-size:12px;color:var(--muted);display:flex;justify-content:space-between;align-items:center;gap:8px;}
   .info-bar .date{font-weight:700;color:var(--text);font-size:14px;}
@@ -114,6 +116,7 @@
 <body>
 
 <header>
+  <a href="count.html" class="nav-link" title="在庫表へ">📋 在庫表</a>
   <h1>冷凍庫 発注メール</h1>
   <span class="subtitle">株式会社若林商店</span>
   <button class="settings-btn" id="settings-btn" title="設定">⚙</button>
