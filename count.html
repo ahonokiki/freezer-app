@@ -119,6 +119,8 @@
   .toast.show{opacity:1;}
   .toast.error{background:var(--red);}
   .settings-btn{background:transparent;border:none;color:rgba(255,255,255,0.8);font-size:20px;cursor:pointer;padding:4px;}
+  .nav-link{display:flex;align-items:center;gap:4px;background:rgba(255,255,255,0.18);color:#fff;text-decoration:none;font-size:12px;font-weight:700;padding:6px 12px;border-radius:20px;white-space:nowrap;}
+  .nav-link:active{background:rgba(255,255,255,0.32);}
   .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:50;display:none;align-items:center;justify-content:center;padding:20px;}
   .modal-bg.show{display:flex;}
   .modal{background:#fff;border-radius:var(--radius);padding:20px;max-width:400px;width:100%;max-height:85vh;overflow-y:auto;}
@@ -134,6 +136,7 @@
 <body>
 
 <header>
+  <a href="order.html" class="nav-link" title="発注へ">📤 発注</a>
   <h1>冷凍在庫表</h1>
   <span class="subtitle">株式会社若林商店</span>
   <button class="settings-btn" id="settings-btn" title="設定">⚙</button>
