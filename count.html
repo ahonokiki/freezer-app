@@ -838,6 +838,9 @@ function moveItem(id, dir){
   if (idx < 0 || newIdx < 0 || newIdx >= ITEMS.length) return;
   [ITEMS[idx], ITEMS[newIdx]] = [ITEMS[newIdx], ITEMS[idx]];
   renderSettingsCards();
+  // 動かした商品が画面に見えたままになるよう追従（毎回スクロールする手間を解消）
+  const moved = document.querySelector(`.scard[data-item-id="${id}"]`);
+  if (moved) moved.scrollIntoView({ block: 'center', behavior: 'auto' });
 }
 
 function deleteItem(id){
