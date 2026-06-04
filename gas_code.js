@@ -11,6 +11,14 @@ const MAX_ITEMS = 50;
 
 function ss(){ return SpreadsheetApp.getActiveSpreadsheet(); }
 function mainSheet(){ return ss().getSheetByName(SHEET_NAME) || ss().getSheets()[0]; }
+
+// 値を日付に変換（Dateオブジェクトでも日付文字列でも対応。非日付は null）
+function toDate_(v){
+  if (v instanceof Date) return v;
+  if (typeof v === 'number' && v > 0) { const d = new Date(v); if (!isNaN(d.getTime())) return d; }
+  if (typeof v === 'string' && v.trim() !== '') { const d = new Date(v); if (!isNaN(d.getTime())) return d; }
+  return null;
+}
 function configSheet(){
   let s = ss().getSheetByName(CONFIG_SHEET);
   if (!s) s = ss().insertSheet(CONFIG_SHEET);
@@ -60,6 +68,25 @@ function doGet(e) {
     }
   }
 
+  // --- 診断（原因切り分け用） ---
+  if (e.parameter.action === 'debug') {
+    const sheet = mainSheet();
+    const lastRow = sheet.getLastRow();
+    const lastCol = sheet.getLastColumn();
+    let col0 = '', col0type = '', sample = [];
+    if (lastRow >= 1) {
+      col0 = sheet.getRange(lastRow, 1).getValue();
+      col0type = (col0 instanceof Date) ? 'Date' : (typeof col0);
+      sample = sheet.getRange(lastRow, 1, 1, Math.min(8, Math.max(lastCol,1))).getValues()[0].map(String);
+    }
+    return ContentService.createTextOutput(JSON.stringify({
+      sheetName: sheet.getName(),
+      allSheets: ss().getSheets().map(s => s.getName()),
+      lastRow: lastRow, lastCol: lastCol,
+      col0type: col0type, lastRowSample: sample,
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+
   // --- 最新在庫の取得 ---
   // 品目ごとに「最後に値が入った行」を採用する。
   // これにより、今回カウントしなかった品は“前回の確認値”と“その確認日”が残る。
@@ -72,14 +99,14 @@ function doGet(e) {
     const counts = {};
     const dates = {};   // 品目ごとの在庫確認日（yyyy-MM-dd）
     for (let i = 1; i <= MAX_ITEMS; i++) { counts[i] = ''; dates[i] = ''; }
-    let newest = null;  // 最新の在庫送信行（全体ヘッダ表示用）
+    let newest = null, newestDate = '';  // 最新の在庫送信行（全体ヘッダ表示用）
     for (let r = 0; r < all.length; r++) {
       const rv = all[r];
-      if (!(rv[0] instanceof Date)) continue;  // ヘッダ等の非データ行はスキップ
-      newest = rv;
-      const rowDate = (rv[1] instanceof Date)
-        ? Utilities.formatDate(rv[1], 'JST', 'yyyy-MM-dd')
-        : Utilities.formatDate(rv[0], 'JST', 'yyyy-MM-dd');
+      // 日付として解釈できる行だけをデータ行とみなす（文字列日付でもOK／ヘッダはスキップ）
+      const d = toDate_(rv[1]) || toDate_(rv[0]);
+      if (!d) continue;
+      const rowDate = Utilities.formatDate(d, 'JST', 'yyyy-MM-dd');
+      newest = rv; newestDate = rowDate;
       for (let i = 1; i <= MAX_ITEMS; i++) {
         const cell = rv[5 + i];
         if (cell !== '' && cell !== null && cell !== undefined) {
@@ -91,7 +118,7 @@ function doGet(e) {
     if (!newest) return ContentService.createTextOutput(JSON.stringify({})).setMimeType(ContentService.MimeType.JSON);
     return ContentService.createTextOutput(JSON.stringify({
       ts: newest[0],
-      date: newest[1] instanceof Date ? Utilities.formatDate(newest[1], 'JST', 'yyyy-MM-dd') : String(newest[1] || ''),
+      date: newestDate,
       reporter: newest[2] || '',
       memo: newest[3] || '',
       stock_level: newest[4] || '',
