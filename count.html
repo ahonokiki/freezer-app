@@ -400,6 +400,7 @@ async function fetchPrevFromServer() {
     if (data && data.counts) {
       localStorage.setItem('freezer_last_counts', JSON.stringify(data.counts));
       localStorage.setItem('freezer_last_date', data.date || '');
+      if (data.dates) localStorage.setItem('freezer_last_dates', JSON.stringify(data.dates));
       if (data.ts) localStorage.setItem('freezer_last_ts', String(data.ts));
       updateLastCheckInfo();
       renderGroups();
@@ -418,6 +419,7 @@ function renderGroups() {
   const groups = {};
   ITEMS.forEach(it => { (groups[it.group] = groups[it.group] || []).push(it); });
   const prevValues = JSON.parse(localStorage.getItem('freezer_last_counts') || '{}');
+  const prevDates = JSON.parse(localStorage.getItem('freezer_last_dates') || '{}');
   const lastMMDD = getLastCheckMMDD();
 
   ['A','B','X'].forEach(g => {
@@ -432,7 +434,10 @@ function renderGroups() {
     groups[g].forEach(it => {
       const v = vendorMap[it.vendor]?.name || '';
       const prev = prevValues[it.id];
-      const prevStr = (prev !== undefined && prev !== null && prev !== '') ? `${prev}` : '―';
+      const hasPrev = (prev !== undefined && prev !== null && prev !== '');
+      const prevStr = hasPrev ? `${prev}` : '―';
+      const itemMMDD = mmddFromYmd(prevDates[it.id]);
+      const prevLabel = (hasPrev && itemMMDD) ? itemMMDD : (lastMMDD || '前回');
       const setting = settings[it.id] || {};
       const hasMin = (setting.min !== undefined && setting.min !== null && setting.min !== '');
       const hasMax = (setting.max !== undefined && setting.max !== null && setting.max !== '');
@@ -449,7 +454,7 @@ function renderGroups() {
         </div>
         <div class="item-row">
           <div class="cell prev">
-            <div class="cell-label">${lastMMDD || '前回'}</div>
+            <div class="cell-label">${prevLabel}</div>
             <div class="cell-value">${prevStr}</div>
           </div>
           <div class="cell input">
@@ -496,6 +501,13 @@ function updateLastCheckInfo(){
     label = `前回在庫確認: ${date}`;
   }
   el.textContent = label;
+}
+
+// 'yyyy-MM-dd' → 'M/D'
+function mmddFromYmd(s){
+  if (!s) return '';
+  const m = String(s).match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+  return m ? `${parseInt(m[2],10)}/${parseInt(m[3],10)}` : '';
 }
 
 // 前回確認日を mm/dd 形式で取得
@@ -595,21 +607,18 @@ document.getElementById('send-btn').addEventListener('click', async () => {
   const stock_level = document.querySelector('[data-choice="stock_level"] .choice-btn.selected')?.dataset.val || '';
   const frost_level = document.querySelector('[data-choice="frost_level"] .choice-btn.selected')?.dataset.val || '';
   const counts = {};
-  // 空欄は前回値を継承（前回確認結果を保持するため）
-  const prevSnapshot = JSON.parse(localStorage.getItem('freezer_last_counts') || '{}');
-  let inheritedCount = 0;
+  // 入力した品だけ送信する。空欄は null（＝今回は確認していない）。
+  // ※前回値を埋め戻さない理由：埋めると未確認品の「確認日」が毎回今日に更新され、
+  //   本当の最終確認日が分からなくなるため。未確認品の前回値・確認日は
+  //   読み取り時にGAS側が品目ごとに復元する。
+  let enteredCount = 0;
   document.querySelectorAll('input[data-id]').forEach(inp => {
     const v = inp.value.trim();
     if (v === '') {
-      const prev = prevSnapshot[inp.dataset.id];
-      if (prev !== undefined && prev !== null && prev !== '') {
-        counts[inp.dataset.id] = prev;
-        inheritedCount++;
-      } else {
-        counts[inp.dataset.id] = null;
-      }
+      counts[inp.dataset.id] = null;
     } else {
       counts[inp.dataset.id] = parseFloat(v);
+      enteredCount++;
     }
   });
 
@@ -625,18 +634,15 @@ document.getElementById('send-btn').addEventListener('click', async () => {
       headers: {'Content-Type':'text/plain'},
       body: JSON.stringify(payload),
     });
-    // 前回値として保存（次回表示用）
-    localStorage.setItem('freezer_last_counts', JSON.stringify(counts));
-    localStorage.setItem('freezer_last_date', date);
     localStorage.setItem('freezer_last_ts', String(payload.ts));
-    showToast(inheritedCount > 0 ? `✅ 送信しました（${inheritedCount}件は前回値を継承）` : '✅ 送信しました');
+    showToast(`✅ 送信しました（${enteredCount}件）`);
     // フォームクリア
     document.querySelectorAll('input[data-id]').forEach(i => i.value = '');
     document.getElementById('memo').value = '';
     document.querySelectorAll('.choice-btn.selected').forEach(b => b.classList.remove('selected'));
     updateLastCheckInfo();
-    renderGroups();
-    attachNavHandlers();
+    // サーバーから品目ごとの最終確認値・確認日（マージ済み）を取り直して表示
+    await fetchPrevFromServer();
   } catch (e) {
     showToast('送信失敗: ' + e.message, true);
   } finally {

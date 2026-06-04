@@ -301,6 +301,7 @@ const VENDORS = loadVendors();
 const vendorMap = Object.fromEntries(VENDORS.map(v => [v.key, v]));
 let currentVendor = VENDORS[0].key;
 let latestCounts = JSON.parse(localStorage.getItem('freezer_latest_remote') || '{}');
+let latestDates = JSON.parse(localStorage.getItem('freezer_latest_dates') || '{}');
 let latestMeta = JSON.parse(localStorage.getItem('freezer_latest_meta') || '{}');
 // 発注選択状態（このセッション）
 const orderState = {}; // vendor -> { itemId: { checked: bool, qty: number } }
@@ -359,8 +360,10 @@ async function fetchLatest() {
     const data = await r.json();
     if (data && data.counts) {
       latestCounts = data.counts;
+      latestDates = data.dates || {};
       latestMeta = { ts: data.ts, date: data.date, reporter: data.reporter, memo: data.memo, stock_level: data.stock_level, frost_level: data.frost_level };
       localStorage.setItem('freezer_latest_remote', JSON.stringify(latestCounts));
+      localStorage.setItem('freezer_latest_dates', JSON.stringify(latestDates));
       localStorage.setItem('freezer_latest_meta', JSON.stringify(latestMeta));
       updateLatestInfo();
       renderVendors();
@@ -371,6 +374,13 @@ async function fetchLatest() {
   } catch(e) {
     showToast('取得失敗: ' + e.message, true);
   }
+}
+
+// 'yyyy-MM-dd' → 'M/D'
+function mmddFromYmd(s){
+  if (!s) return '';
+  const m = String(s).match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+  return m ? `${parseInt(m[2],10)}/${parseInt(m[3],10)}` : '';
 }
 
 function renderTabs() {
@@ -431,7 +441,10 @@ function renderVendors() {
       const stock = latestCounts[it.id];
       const hasStock = (stock !== undefined && stock !== null && stock !== '' && !isNaN(parseFloat(stock)));
       const stockNum = hasStock ? parseFloat(stock) : null;
-      const stockStr = hasStock ? `現在庫: ${stock}${it.unit}` : '現在庫: 未入力';
+      const stockMMDD = mmddFromYmd(latestDates[it.id]);
+      const stockStr = hasStock
+        ? `現在庫: ${stock}${it.unit}${stockMMDD ? `（${stockMMDD}確認）` : ''}`
+        : '現在庫: 未入力';
       const s = settings[it.id] || {};
       // 行背景: 最小以下=赤(少ない) / 最大以上=青(多い) / それ以外=なし
       let bgClass = '';
