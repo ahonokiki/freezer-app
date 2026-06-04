@@ -75,7 +75,10 @@
   .scard-actions{display:flex;gap:4px;}
   .scard-actions button{background:#fff;border:1px solid var(--border);color:var(--muted);font-size:12px;width:28px;height:28px;border-radius:6px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;padding:0;}
   .scard-actions button:active{background:var(--light-accent);}
+  .scard-actions button:disabled{opacity:0.3;cursor:default;}
   .scard-actions .del-btn{color:var(--red);}
+  .scard-move-hint{font-size:10px;color:var(--muted);margin:0 0 8px;line-height:1.4;}
+  .scard-move-hint .end{color:#cdd5e2;}
   .add-item-btn{width:100%;padding:10px;background:#fff;border:2px dashed var(--accent2);color:var(--accent2);border-radius:8px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;margin-top:4px;}
   .add-item-btn:active{background:var(--light-accent);}
   .vrow{display:flex;gap:8px;align-items:center;margin-bottom:6px;}
@@ -759,9 +762,13 @@ function renderSettingsCards(){
     groupDiv.className = 'sgroup';
     groupDiv.innerHTML = `<div class="sgroup-head">${GROUP_LABELS[g]||g}</div>`;
     // この group の items を ITEMS 配列順に並べる
-    ITEMS.forEach((it, idx) => {
-      if (it.group !== g) return;
+    const groupItems = ITEMS.filter(x => x.group === g);
+    groupItems.forEach((it, gi) => {
       const s = settings[it.id] || {};
+      const prevName = gi > 0 ? groupItems[gi - 1].name : '';
+      const nextName = gi < groupItems.length - 1 ? groupItems[gi + 1].name : '';
+      const atTop = gi === 0;
+      const atBottom = gi === groupItems.length - 1;
       const card = document.createElement('div');
       card.className = 'scard';
       card.dataset.itemId = it.id;
@@ -769,11 +776,12 @@ function renderSettingsCards(){
         <div class="scard-head">
           <span class="scard-id">No.${it.id}</span>
           <div class="scard-actions">
-            <button type="button" class="move-up" data-id="${it.id}" title="上へ">▲</button>
-            <button type="button" class="move-down" data-id="${it.id}" title="下へ">▼</button>
+            <button type="button" class="move-up" data-id="${it.id}" title="${atTop ? 'これより上はありません' : '上へ（'+escHtml(prevName)+'と入れ替え）'}" ${atTop ? 'disabled' : ''}>▲</button>
+            <button type="button" class="move-down" data-id="${it.id}" title="${atBottom ? 'これより下はありません' : '下へ（'+escHtml(nextName)+'と入れ替え）'}" ${atBottom ? 'disabled' : ''}>▼</button>
             <button type="button" class="del-btn" data-id="${it.id}" title="削除">🗑</button>
           </div>
         </div>
+        <div class="scard-move-hint">↑ ${atTop ? '<span class="end">（先頭）</span>' : escHtml(prevName)}　／　↓ ${atBottom ? '<span class="end">（末尾）</span>' : escHtml(nextName)}</div>
         <div class="scard-row"><span class="scard-label">品名</span>
           <input type="text" data-item-id="${it.id}" data-item-key="name" value="${escHtml(it.name)}">
         </div>
@@ -833,10 +841,16 @@ function moveItem(id, dir){
   if (document.getElementById('settings-form').classList.contains('locked')) return;
   // 編集中の値を ITEMS に反映してから配列順を変更
   syncFormValuesToItems();
-  const idx = ITEMS.findIndex(it => it.id === id);
-  const newIdx = idx + dir;
-  if (idx < 0 || newIdx < 0 || newIdx >= ITEMS.length) return;
-  [ITEMS[idx], ITEMS[newIdx]] = [ITEMS[newIdx], ITEMS[idx]];
+  const it = ITEMS.find(x => x.id === id);
+  if (!it) return;
+  // 同じグループ内の隣と入れ替える（グループをまたがない）
+  const groupItems = ITEMS.filter(x => x.group === it.group);
+  const gIdx = groupItems.findIndex(x => x.id === id);
+  const target = groupItems[gIdx + dir];
+  if (!target) return; // グループの端
+  const a = ITEMS.findIndex(x => x.id === id);
+  const b = ITEMS.findIndex(x => x.id === target.id);
+  [ITEMS[a], ITEMS[b]] = [ITEMS[b], ITEMS[a]];
   renderSettingsCards();
   // 動かした商品が画面に見えたままになるよう追従（毎回スクロールする手間を解消）
   const moved = document.querySelector(`.scard[data-item-id="${id}"]`);
