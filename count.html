@@ -60,11 +60,13 @@
   .mm-v{font-weight:700;font-size:13px;color:var(--text);}
   .mm-v.unset{color:#cdd5e2;font-weight:400;font-size:11px;}
   .warn-low{color:var(--red) !important;}
-  /* 行背景: 最小以下=赤 / 最大以上=青(仕入れストップ) */
+  /* 行背景: 最小以下=赤 / 最大超え=青 / 最大の1.5倍以上=濃い青(仕入れストップ) */
   .item.bg-low{background:#fde8e8 !important;}
   .item.bg-low.focused{background:#fcd5d5 !important;}
   .item.bg-high{background:#e3f0fb !important;}
   .item.bg-high.focused{background:#cfe4f7 !important;}
+  .item.bg-vhigh{background:#9fc6ee !important;}
+  .item.bg-vhigh.focused{background:#8bbae9 !important;}
   /* 設定テーブル */
   .settings-cards{margin:10px 0;padding-bottom:80px;}
   .sgroup{margin-bottom:14px;}
@@ -212,7 +214,7 @@
       <div class="settings-section-title">品目別 設定</div>
       <p style="font-size:10px;color:var(--muted);margin-bottom:6px;line-height:1.4;">
         品名・単位は表示用。発注商品名は SMS本文に使う名前（空欄なら品名）。<br>
-        最小以下→赤背景（自動発注）／最大以上→青背景（仕入れストップ）。<br>
+        最小以下→赤背景（自動発注）／最大超え→青背景・最大の1.5倍以上→濃い青（仕入れストップ）。最大ちょうどは白のまま。<br>
         ⚠ 発注数が空欄だと自動発注されません（「発注商品名のみ」の品を除く）。
       </p>
       <div class="settings-cards" id="settings-cards"></div>
@@ -546,7 +548,7 @@ function valueColorClass(value, settings){
   const maxSet = settings.max !== undefined && settings.max !== null && settings.max !== '';
   if (minSet && v < parseFloat(settings.min)) return 'v-low';
   if (minSet && v === parseFloat(settings.min)) return 'v-warn';
-  if (maxSet && v >= parseFloat(settings.max)) return 'v-high';
+  if (maxSet && v > parseFloat(settings.max)) return 'v-high';
   return '';
 }
 
@@ -594,7 +596,7 @@ function checkLowStock(inp) {
   const settings = loadItemSettings();
   const s = settings[id] || {};
   const row = inp.closest('.item');
-  row.classList.remove('bg-low','bg-high');
+  row.classList.remove('bg-low','bg-high','bg-vhigh');
   // 今週入力があればそれ、空なら前回値(placeholder)で判定
   let raw = inp.value.trim();
   if (raw === '') raw = (inp.placeholder || '');
@@ -602,9 +604,9 @@ function checkLowStock(inp) {
   if (isNaN(v)) return;
   const minSet = s.min !== undefined && s.min !== null && s.min !== '';
   const maxSet = s.max !== undefined && s.max !== null && s.max !== '';
-  if (minSet && v <= parseFloat(s.min)) row.classList.add('bg-low');        // 少ない→赤
-  else if (maxSet && v >= parseFloat(s.max)) row.classList.add('bg-high');  // 多い→青
-  // それ以外（ふつう）は色なし
+  if (minSet && v <= parseFloat(s.min)) row.classList.add('bg-low');               // 少ない→赤
+  else if (maxSet && v >= parseFloat(s.max) * 1.5) row.classList.add('bg-vhigh');  // 最大の1.5倍以上→濃い青
+  else if (maxSet && v > parseFloat(s.max)) row.classList.add('bg-high');          // 最大超え→青（最大ちょうどは白）
 }
 
 // 送信

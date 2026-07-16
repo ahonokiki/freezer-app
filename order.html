@@ -58,10 +58,11 @@
   .copy-btn{width:calc(100% - 28px);margin:0 14px 14px;padding:12px;background:#fff;border:1.5px solid var(--accent2);color:var(--accent2);border-radius:10px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;}
   .copy-btn.copied{background:var(--green-bg);border-color:var(--green);color:var(--green);}
   .empty-state{text-align:center;padding:40px 20px;color:var(--muted);font-size:13px;}
-  /* 行背景: 最小以下=赤(要発注) / 最大以上=青(仕入れストップ) */
+  /* 行背景: 最小以下=赤(要発注) / 最大超え=青 / 最大の1.5倍以上=濃い青(仕入れストップ) */
   .order-item.bg-low{background:#fde8e8;}
   .order-item.bg-high{background:#e3f0fb;}
-  .oi-over{font-size:11px;color:var(--accent2);font-weight:700;margin-top:2px;}
+  .order-item.bg-vhigh{background:#9fc6ee;}
+  .oi-over{font-size:11px;color:var(--accent);font-weight:700;margin-top:2px;}
   .oi-noorder{font-size:11px;color:var(--red);font-weight:700;margin-top:2px;}
   /* 設定テーブル */
   .settings-cards{margin:10px 0;padding-bottom:80px;}
@@ -137,7 +138,7 @@
   </div>
 
   <div class="notice">
-    💡 最小以下の品（赤背景）は発注数を自動入力。青背景は最大以上＝仕入れストップ。手で数量調整→業者ごとにコピー→SMSアプリに貼り付け
+    💡 最小以下の品（赤背景）は発注数を自動入力。最大より多い品は青背景（1.5倍以上は濃い青）＝仕入れストップ。手で数量調整→業者ごとにコピー→SMSアプリに貼り付け
   </div>
 
   <div class="vendor-tabs" id="vendor-tabs"></div>
@@ -455,9 +456,12 @@ function renderVendors() {
       const maxSet = s.max !== undefined && s.max !== null && s.max !== '';
       const orderSet = s.order !== undefined && s.order !== null && s.order !== '';
       const atOrBelowMin = hasStock && minSet && stockNum <= parseFloat(s.min);
-      const atOrAboveMax = hasStock && maxSet && stockNum >= parseFloat(s.max);
+      // 最大ちょうどは白のまま。超えたら青、1.5倍以上は濃い青
+      const aboveMax   = hasStock && maxSet && stockNum > parseFloat(s.max);
+      const farAboveMax = hasStock && maxSet && stockNum >= parseFloat(s.max) * 1.5;
       if (atOrBelowMin) bgClass = 'bg-low';
-      else if (atOrAboveMax) bgClass = 'bg-high';
+      else if (farAboveMax) bgClass = 'bg-vhigh';
+      else if (aboveMax) bgClass = 'bg-high';
       // 自動入力: 最小以下 → 発注対象。auto印を付け、最新在庫を取得し直すたびに再計算する
       // （古いキャッシュで自動入力された数量が、最新在庫では最小超えなのに残り続けるのを防ぐ）
       // 発注数未設定でも「SMSに数量を出さない品」は自動で発注対象にする（数量はダミーの1）
@@ -478,7 +482,7 @@ function renderVendors() {
           <div class="oi-name">${it.name}</div>
           ${(it.order_name && it.order_name.trim() && it.order_name !== it.name) ? `<div class="oi-ordername">📤 ${it.order_name}</div>` : ''}
           <div class="oi-stock">${stockStr}${s.min!=null&&s.min!==''?` / 最小${s.min}`:''}${s.max!=null&&s.max!==''?` / 最大${s.max}`:''}</div>
-          ${atOrAboveMax ? `<div class="oi-over">🔵 最大以上 → 仕入れストップ</div>` : ''}
+          ${farAboveMax ? `<div class="oi-over">🔵 最大の1.5倍以上 → 仕入れストップ！</div>` : (aboveMax ? `<div class="oi-over">🔵 最大超え → 仕入れストップ</div>` : '')}
           ${noOrderQty ? `<div class="oi-noorder">⚠ 最小以下ですが発注数が未設定（手で数量を入れてください）</div>` : ''}
         </div>
         <div class="oi-qty-wrap">
