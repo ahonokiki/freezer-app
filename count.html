@@ -43,10 +43,10 @@
   /* 数値の色分け（最小未満/最小/最大以上） */
   .cell-value.v-low{color:var(--red) !important;font-weight:700;}
   .cell-value.v-warn{color:#d68000 !important;font-weight:700;}
-  .cell-value.v-high{color:var(--green) !important;font-weight:700;}
+  .cell-value.v-high{color:#7b3fb5 !important;font-weight:700;}
   .cell.input input.v-low{color:var(--red);}
   .cell.input input.v-warn{color:#d68000;}
-  .cell.input input.v-high{color:var(--green);}
+  .cell.input input.v-high{color:#7b3fb5;}
   .cell.input{background:var(--input-bg);border:1.5px solid var(--border);border-radius:10px;padding:2px 2px 4px;}
   .cell.input:focus-within{border-color:var(--accent2);background:#fff;}
   .cell.input .cell-label{padding-top:2px;}
@@ -60,11 +60,11 @@
   .mm-v{font-weight:700;font-size:13px;color:var(--text);}
   .mm-v.unset{color:#cdd5e2;font-weight:400;font-size:11px;}
   .warn-low{color:var(--red) !important;}
-  /* 行背景: 最小未満=赤 / 最小=黄 / 最大以上=薄緑 */
+  /* 行背景: 最小以下=赤 / 最大以上=紫(仕入れストップ) */
   .item.bg-low{background:#fde8e8 !important;}
   .item.bg-low.focused{background:#fcd5d5 !important;}
-  .item.bg-high{background:#e3f0fb !important;}
-  .item.bg-high.focused{background:#cfe4f7 !important;}
+  .item.bg-high{background:#f0e5fa !important;}
+  .item.bg-high.focused{background:#e3d0f4 !important;}
   /* 設定テーブル */
   .settings-cards{margin:10px 0;padding-bottom:80px;}
   .sgroup{margin-bottom:14px;}
@@ -212,7 +212,8 @@
       <div class="settings-section-title">品目別 設定</div>
       <p style="font-size:10px;color:var(--muted);margin-bottom:6px;line-height:1.4;">
         品名・単位は表示用。発注商品名は SMS本文に使う名前（空欄なら品名）。<br>
-        最小以下→赤背景／最大以上→青背景。
+        最小以下→赤背景（自動発注）／最大以上→紫背景（仕入れストップ）。<br>
+        ⚠ 発注数が空欄だと自動発注されません（「発注商品名のみ」の品を除く）。
       </p>
       <div class="settings-cards" id="settings-cards"></div>
     </div>
@@ -337,6 +338,15 @@ function loadItemSettings(){
   return {};
 }
 function saveItemSettings(s){ localStorage.setItem('freezer_item_settings', JSON.stringify(s)); }
+// 削除済み品のID一覧（IDを再利用すると履歴シートの列や設定が別品と混ざるため、欠番のままにする）
+function loadRetiredIds(){
+  try { return JSON.parse(localStorage.getItem('freezer_retired_ids') || '[]'); } catch(e){ return []; }
+}
+function retireIds(ids){
+  const retired = loadRetiredIds();
+  ids.forEach(id => { if (!retired.includes(id)) retired.push(id); });
+  localStorage.setItem('freezer_retired_ids', JSON.stringify(retired));
+}
 
 /* === サーバー（GAS）への設定同期（タイムスタンプで新しい方を優先） === */
 function saveConfigToServer(){
@@ -865,6 +875,7 @@ function deleteItem(id){
   syncFormValuesToItems();
   const idx = ITEMS.findIndex(x => x.id === id);
   if (idx >= 0) ITEMS.splice(idx, 1);
+  retireIds([id]);  // 直後に新規追加してもこのIDを再利用しない
   renderSettingsCards();
 }
 
@@ -872,7 +883,8 @@ function addNewItem(group){
   if (document.getElementById('settings-form').classList.contains('locked')) return;
   syncFormValuesToItems();
   const maxId = ITEMS.reduce((m, it) => Math.max(m, it.id), 0);
-  const newItem = { id: maxId + 1, group: group, name: '', unit: '袋', vendor: '', order_name: '' };
+  const maxRetired = loadRetiredIds().reduce((m, id) => Math.max(m, id), 0);
+  const newItem = { id: Math.max(maxId, maxRetired) + 1, group: group, name: '', unit: '袋', vendor: '', order_name: '' };
   // 同グループの末尾に挿入
   let lastIdxInGroup = -1;
   ITEMS.forEach((it, i) => { if (it.group === group) lastIdxInGroup = i; });
@@ -991,6 +1003,7 @@ function saveSettings(){
   if (!confirm(msg)) return;
 
   // 保存
+  retireIds(oldItems.filter(oit => !ITEMS.find(x => x.id === oit.id)).map(oit => oit.id));
   saveWebhookUrl(newUrl);
   saveItemSettings(newSettings);
   saveItems(ITEMS);

@@ -58,9 +58,11 @@
   .copy-btn{width:calc(100% - 28px);margin:0 14px 14px;padding:12px;background:#fff;border:1.5px solid var(--accent2);color:var(--accent2);border-radius:10px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;}
   .copy-btn.copied{background:var(--green-bg);border-color:var(--green);color:var(--green);}
   .empty-state{text-align:center;padding:40px 20px;color:var(--muted);font-size:13px;}
-  /* 行背景: 最小未満=赤 / 最小=黄 / 最大以上=薄緑 */
+  /* 行背景: 最小以下=赤(要発注) / 最大以上=紫(仕入れストップ) */
   .order-item.bg-low{background:#fde8e8;}
-  .order-item.bg-high{background:#e3f0fb;}
+  .order-item.bg-high{background:#f0e5fa;}
+  .oi-over{font-size:11px;color:#7b3fb5;font-weight:700;margin-top:2px;}
+  .oi-noorder{font-size:11px;color:var(--red);font-weight:700;margin-top:2px;}
   /* 設定テーブル */
   .settings-cards{margin:10px 0;padding-bottom:80px;}
   .sgroup{margin-bottom:14px;}
@@ -135,7 +137,7 @@
   </div>
 
   <div class="notice">
-    💡 在庫が最小以下になった品は発注数を自動入力（赤/黄背景）。手で数量調整→業者ごとにコピー→SMSアプリに貼り付け
+    💡 最小以下の品（赤背景）は発注数を自動入力。紫背景は最大以上＝仕入れストップ。手で数量調整→業者ごとにコピー→SMSアプリに貼り付け
   </div>
 
   <div class="vendor-tabs" id="vendor-tabs"></div>
@@ -299,7 +301,8 @@ async function fetchConfigFromServer(){
 const ITEMS = loadItems();
 const VENDORS = loadVendors();
 const vendorMap = Object.fromEntries(VENDORS.map(v => [v.key, v]));
-let currentVendor = VENDORS[0].key;
+// 品目が1つもない業者はタブに出ないため、初期表示は「品目のある最初の業者」にする
+let currentVendor = (VENDORS.find(v => ITEMS.some(it => it.vendor === v.key)) || VENDORS[0]).key;
 let latestCounts = JSON.parse(localStorage.getItem('freezer_latest_remote') || '{}');
 let latestDates = JSON.parse(localStorage.getItem('freezer_latest_dates') || '{}');
 let latestMeta = JSON.parse(localStorage.getItem('freezer_latest_meta') || '{}');
@@ -455,18 +458,28 @@ function renderVendors() {
       const atOrAboveMax = hasStock && maxSet && stockNum >= parseFloat(s.max);
       if (atOrBelowMin) bgClass = 'bg-low';
       else if (atOrAboveMax) bgClass = 'bg-high';
-      // 自動入力: 最小以下かつ発注数設定済み → 発注対象
-      if (!orderState[v.key][it.id] && atOrBelowMin && orderSet) {
-        orderState[v.key][it.id] = { qty: s.order };
+      // 自動入力: 最小以下 → 発注対象。auto印を付け、最新在庫を取得し直すたびに再計算する
+      // （古いキャッシュで自動入力された数量が、最新在庫では最小超えなのに残り続けるのを防ぐ）
+      // 発注数未設定でも「SMSに数量を出さない品」は自動で発注対象にする（数量はダミーの1）
+      const prevState = orderState[v.key][it.id];
+      if (!prevState || prevState.auto) {
+        if (atOrBelowMin && (orderSet || it.no_order_unit)) {
+          orderState[v.key][it.id] = { qty: orderSet ? s.order : 1, auto: true };
+        } else if (prevState && prevState.auto) {
+          delete orderState[v.key][it.id];  // 在庫が回復していたら自動入力を取り消す
+        }
       }
       const state = orderState[v.key][it.id] || {};
+      const noOrderQty = atOrBelowMin && !orderSet && !it.no_order_unit;
       const row = document.createElement('div');
       row.className = 'order-item ' + bgClass;
       row.innerHTML = `
         <div class="oi-info">
           <div class="oi-name">${it.name}</div>
           ${(it.order_name && it.order_name.trim() && it.order_name !== it.name) ? `<div class="oi-ordername">📤 ${it.order_name}</div>` : ''}
-          <div class="oi-stock">${stockStr}${s.min!=null&&s.min!==''?` / 最小${s.min}`:''}</div>
+          <div class="oi-stock">${stockStr}${s.min!=null&&s.min!==''?` / 最小${s.min}`:''}${s.max!=null&&s.max!==''?` / 最大${s.max}`:''}</div>
+          ${atOrAboveMax ? `<div class="oi-over">🟣 最大以上 → 仕入れストップ</div>` : ''}
+          ${noOrderQty ? `<div class="oi-noorder">⚠ 最小以下ですが発注数が未設定（手で数量を入れてください）</div>` : ''}
         </div>
         <div class="oi-qty-wrap">
           <input type="number" inputmode="decimal" step="0.5" min="0" data-qty="${it.id}" value="${state.qty || ''}" placeholder="―">
@@ -481,8 +494,8 @@ function renderVendors() {
     card.querySelectorAll('[data-qty]').forEach(inp => {
       inp.addEventListener('input', () => {
         const id = inp.dataset.qty;
-        orderState[v.key][id] = orderState[v.key][id] || {};
-        orderState[v.key][id].qty = inp.value;
+        // 手入力は auto 印を外す（最新取得時に勝手に消えたり書き換わったりしない）
+        orderState[v.key][id] = { qty: inp.value, auto: false };
         updatePreview(v.key);
         updateBadges();
       });
@@ -530,7 +543,7 @@ function updatePreview(vendorKey) {
 
 function copyVendor(vendorKey) {
   const text = buildSmsText(vendorKey);
-  if (!text) { showToast('発注する品にチェックを入れてください', true); return; }
+  if (!text) { showToast('発注する品の数量を入れてください', true); return; }
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(text).then(() => onCopied(vendorKey));
   } else {
