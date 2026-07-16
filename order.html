@@ -58,10 +58,10 @@
   .copy-btn{width:calc(100% - 28px);margin:0 14px 14px;padding:12px;background:#fff;border:1.5px solid var(--accent2);color:var(--accent2);border-radius:10px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;}
   .copy-btn.copied{background:var(--green-bg);border-color:var(--green);color:var(--green);}
   .empty-state{text-align:center;padding:40px 20px;color:var(--muted);font-size:13px;}
-  /* 行背景: 最小以下=赤(要発注) / 最大以上=紫(仕入れストップ) */
+  /* 行背景: 最小以下=赤(要発注) / 最大以上=黄(仕入れストップ) */
   .order-item.bg-low{background:#fde8e8;}
-  .order-item.bg-high{background:#f0e5fa;}
-  .oi-over{font-size:11px;color:#7b3fb5;font-weight:700;margin-top:2px;}
+  .order-item.bg-high{background:#fff3c4;}
+  .oi-over{font-size:11px;color:#a97b00;font-weight:700;margin-top:2px;}
   .oi-noorder{font-size:11px;color:var(--red);font-weight:700;margin-top:2px;}
   /* 設定テーブル */
   .settings-cards{margin:10px 0;padding-bottom:80px;}
@@ -137,7 +137,7 @@
   </div>
 
   <div class="notice">
-    💡 最小以下の品（赤背景）は発注数を自動入力。紫背景は最大以上＝仕入れストップ。手で数量調整→業者ごとにコピー→SMSアプリに貼り付け
+    💡 最小以下の品（赤背景）は発注数を自動入力。黄背景は最大以上＝仕入れストップ。手で数量調整→業者ごとにコピー→SMSアプリに貼り付け
   </div>
 
   <div class="vendor-tabs" id="vendor-tabs"></div>
@@ -478,7 +478,7 @@ function renderVendors() {
           <div class="oi-name">${it.name}</div>
           ${(it.order_name && it.order_name.trim() && it.order_name !== it.name) ? `<div class="oi-ordername">📤 ${it.order_name}</div>` : ''}
           <div class="oi-stock">${stockStr}${s.min!=null&&s.min!==''?` / 最小${s.min}`:''}${s.max!=null&&s.max!==''?` / 最大${s.max}`:''}</div>
-          ${atOrAboveMax ? `<div class="oi-over">🟣 最大以上 → 仕入れストップ</div>` : ''}
+          ${atOrAboveMax ? `<div class="oi-over">🟡 最大以上 → 仕入れストップ</div>` : ''}
           ${noOrderQty ? `<div class="oi-noorder">⚠ 最小以下ですが発注数が未設定（手で数量を入れてください）</div>` : ''}
         </div>
         <div class="oi-qty-wrap">

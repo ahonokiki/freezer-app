@@ -43,10 +43,10 @@
   /* 数値の色分け（最小未満/最小/最大以上） */
   .cell-value.v-low{color:var(--red) !important;font-weight:700;}
   .cell-value.v-warn{color:#d68000 !important;font-weight:700;}
-  .cell-value.v-high{color:#7b3fb5 !important;font-weight:700;}
+  .cell-value.v-high{color:#a97b00 !important;font-weight:700;}
   .cell.input input.v-low{color:var(--red);}
   .cell.input input.v-warn{color:#d68000;}
-  .cell.input input.v-high{color:#7b3fb5;}
+  .cell.input input.v-high{color:#a97b00;}
   .cell.input{background:var(--input-bg);border:1.5px solid var(--border);border-radius:10px;padding:2px 2px 4px;}
   .cell.input:focus-within{border-color:var(--accent2);background:#fff;}
   .cell.input .cell-label{padding-top:2px;}
@@ -60,11 +60,11 @@
   .mm-v{font-weight:700;font-size:13px;color:var(--text);}
   .mm-v.unset{color:#cdd5e2;font-weight:400;font-size:11px;}
   .warn-low{color:var(--red) !important;}
-  /* 行背景: 最小以下=赤 / 最大以上=紫(仕入れストップ) */
+  /* 行背景: 最小以下=赤 / 最大以上=黄(仕入れストップ) */
   .item.bg-low{background:#fde8e8 !important;}
   .item.bg-low.focused{background:#fcd5d5 !important;}
-  .item.bg-high{background:#f0e5fa !important;}
-  .item.bg-high.focused{background:#e3d0f4 !important;}
+  .item.bg-high{background:#fff3c4 !important;}
+  .item.bg-high.focused{background:#ffe9a3 !important;}
   /* 設定テーブル */
   .settings-cards{margin:10px 0;padding-bottom:80px;}
   .sgroup{margin-bottom:14px;}
@@ -212,7 +212,7 @@
       <div class="settings-section-title">品目別 設定</div>
       <p style="font-size:10px;color:var(--muted);margin-bottom:6px;line-height:1.4;">
         品名・単位は表示用。発注商品名は SMS本文に使う名前（空欄なら品名）。<br>
-        最小以下→赤背景（自動発注）／最大以上→紫背景（仕入れストップ）。<br>
+        最小以下→赤背景（自動発注）／最大以上→黄背景（仕入れストップ）。<br>
         ⚠ 発注数が空欄だと自動発注されません（「発注商品名のみ」の品を除く）。
       </p>
       <div class="settings-cards" id="settings-cards"></div>
